@@ -23,13 +23,21 @@ Next:
 
 ## Phase 2: HTTP / TLS / WebSocket
 
-Status: API skeleton only.
+Status: parser/codec utilities implemented, transport still pending.
+
+Implemented:
+
+- HTTP response parser
+- HTTP header lookup
+- Basic chunked body decoding
+- WebSocket frame encode/decode
+- Masked frame decoding
 
 Next:
 
-- HTTP response header parser
-- WebSocket frame encode/decode
 - Sec-WebSocket-Accept verification
+- HTTP request builder
+- WebSocket handshake request/response helpers
 - TLS research track
 
 ## Phase 3: Gateway

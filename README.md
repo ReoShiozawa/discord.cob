@@ -1,75 +1,134 @@
 # discord.cob
 
-COBOLだけでDiscord Botを作るための実験的フレームワークです。
-設計書 `discord_cob_design.md` を元に、Phase 0/1 の土台と後続フェーズ用のAPI骨格を実装しています。
+`discord.cob` is an experimental framework for building Discord bots in COBOL.
+The long-term goal is ambitious on purpose: a Discord Voice and music bot stack implemented in COBOL, with the public API shaped more like a bot framework than a bag of protocol helpers.
 
-## 現在の実装状況
+The current repository is the early scaffold for that effort. Core state handling, JSON path extraction, HTTP response parsing, WebSocket frame codecs, RTP packet building, and queue primitives are already in place. Live Discord connectivity, TLS, voice transport, and encryption are still under active development.
 
-実装済み:
+## Goals
 
-- Core: client init, result, logger, event handler registration, dispatch
-- JSON: simple JSON Path reader for values such as `$.op`, `$.t`, `$.d.session_id`
-- Gateway/Interaction: payload builder and routing skeleton
-- RTP: RTP header builder, packet builder, sequence/timestamp advance
-- Opus: Discord silence frame builder
-- Music: queue init/push/pop and track helper
-- Voice/Network/Crypto: public API skeleton with explicit `DC_ERR_*` results
+- Keep the human-authored implementation in COBOL
+- Hide Discord protocol complexity behind simple callable APIs
+- Grow incrementally from parser and codec layers toward a working Gateway bot
+- Eventually support voice join, RTP, encrypted voice packets, and music playback
 
-未実装:
+## Current Status
 
-- TCP socket
-- TLS
-- WebSocket transport
-- Discord Gateway live connection
+Implemented today:
+
+- Core client initialization, result handling, logging, event registration, and dispatch
+- JSON path extraction for Discord-style payloads
+- HTTP response parsing, header lookup, and basic chunked transfer decoding
+- WebSocket frame encode/decode, including masked decode and 16-bit extended lengths
+- RTP header and packet building
+- Opus silence frame generation
+- Music queue primitives and track helpers
+
+Not implemented yet:
+
+- TCP/TLS transport
+- WebSocket handshake transport
+- Live Discord Gateway session handling
 - UDP voice transport
 - Voice encryption
-- Ogg Opus packet reader
-- Full music bot playback
+- Ogg Opus parsing and full audio playback
 
-## 必要環境
+## Repository Layout
 
-- GnuCOBOL (`cobc`)
-- macOSの場合は Homebrew で導入できます。
+```text
+src/
+  core/          client state, dispatcher, result helpers
+  json/          JSON validation and path readers
+  net/           HTTP and WebSocket codecs, future transport layers
+  gateway/       Gateway payload builders and event mapping
+  voice/         voice session state and future UDP/gateway logic
+  rtp/           RTP header and packet builders
+  crypto/        future voice encryption layer
+  opus/          Opus helpers and future readers/encoders
+  audio/         player-side abstractions
+  music/         queue and command helpers
+  copybooks/     shared COBOL data definitions
+
+examples/        runnable phase-oriented examples
+tests/           executable COBOL tests
+docs/            API notes and roadmap
+```
+
+## Quick Start
+
+### Requirements
+
+- GnuCOBOL `cobc`
+
+On macOS with Homebrew:
 
 ```sh
 brew install gnucobol
 ```
 
-この環境では `/opt/homebrew/bin/cobc` が見つかったため、追加インストールは行っていません。
-
-## ビルドとテスト
+### Build
 
 ```sh
 make build
+```
+
+### Test
+
+```sh
 make test
 ```
 
-`make test` は以下をコンパイルして実行します。
+Current test suite:
 
 - `core-test`
 - `json-test`
+- `http-test`
+- `websocket-test`
 - `rtp-test`
 - `music-queue-test`
 
-## Bot Token
+### Run an Example
 
-Bot Tokenはソースへ書かず、環境変数から読む方針です。
+The HTTP parsing example can be built and run with:
 
 ```sh
-cp .env.example .env
+mkdir -p build/examples
+cobc -free -Wall -I src/copybooks -x \
+  -o build/examples/example-http \
+  examples/01-rest-message/main.cob \
+  $(find src -name '*.cob' | sort)
+./build/examples/example-http
 ```
 
-`.env` は `.gitignore` 済みです。
+## Configuration
 
-## 次の実装候補
+Discord tokens should not be hard-coded. The project uses environment-driven configuration and includes:
 
-1. JSON tokenizer/parserの厳密化
-2. HTTP response/header parser
-3. WebSocket frame builder/parser
-4. Gateway READY受信用の最小WebSocket接続
-5. Slash command `/ping`
-6. Voice Join state machine
-7. UDP discovery
-8. RTP silence sending
-9. Voice encryption
-10. Ogg Opus packet reader
+- `.env.example`
+- `.gitignore` coverage for `.env`
+
+The intended bot entrypoint pattern is shown in [examples/02-gateway-ready/main.cob](examples/02-gateway-ready/main.cob).
+
+## Documentation
+
+- Design document: [discord_cob_design.md](discord_cob_design.md)
+- API notes: [docs/api.md](docs/api.md)
+- Roadmap: [docs/roadmap.md](docs/roadmap.md)
+
+## Roadmap Snapshot
+
+Near-term priorities:
+
+1. WebSocket handshake helpers and `Sec-WebSocket-Accept` validation
+2. Minimal Discord Gateway `HELLO` and `READY` handling
+3. Slash command `/ping`
+4. Voice join state machine
+5. UDP discovery and encrypted voice packet groundwork
+
+## Contributing
+
+The project is still in an exploratory phase, but issues and discussions around protocol handling, COBOL portability, and Discord compatibility are welcome. Small, test-backed changes fit best with the current direction.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

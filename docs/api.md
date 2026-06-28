@@ -79,6 +79,53 @@ CALL "DC-RTP-ADVANCE"
 The current packet builder is unencrypted and intended for internal testing.
 Voice encryption will wrap this in a later phase.
 
+## HTTP
+
+Raw HTTP response parsing is available even though socket transport is not.
+
+```cobol
+CALL "DC-HTTP-PARSE-RESPONSE"
+    USING RAW-RESPONSE
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-HTTP-GET-HEADER"
+    USING DC-HTTP-RAW-HEADERS
+          "Content-Type"
+          HEADER-VALUE
+          DC-RESULT.
+```
+
+`Content-Length` and basic `Transfer-Encoding: chunked` bodies are supported.
+
+## WebSocket
+
+Transport is still pending, but frame encoding and decoding are available.
+
+```cobol
+CALL "DC-WS-ENCODE-FRAME"
+    USING DC-WS-FRAME
+          DC-WS-BUFFER
+          DC-RESULT.
+
+CALL "DC-WS-DECODE-FRAME"
+    USING DC-WS-BUFFER
+          DC-WS-FRAME
+          DC-RESULT.
+```
+
+Current coverage:
+
+- unmasked frames
+- masked frame decoding
+- payload lengths up to 65535 bytes
+
+Not yet covered:
+
+- 64-bit payload lengths
+- handshake validation
+- live socket transport
+
 ## Music Queue
 
 ```cobol

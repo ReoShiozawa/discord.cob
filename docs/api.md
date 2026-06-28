@@ -100,7 +100,7 @@ CALL "DC-HTTP-GET-HEADER"
 
 ## WebSocket
 
-Transport is still pending, but frame encoding and decoding are available.
+Transport is still pending, but frame encoding, decoding, and handshake helpers are available.
 
 ```cobol
 CALL "DC-WS-ENCODE-FRAME"
@@ -112,6 +112,16 @@ CALL "DC-WS-DECODE-FRAME"
     USING DC-WS-BUFFER
           DC-WS-FRAME
           DC-RESULT.
+
+CALL "DC-WS-BUILD-HANDSHAKE-REQUEST"
+    USING DC-WS-REQUEST
+          DC-WS-BUFFER
+          DC-RESULT.
+
+CALL "DC-WS-VALIDATE-HS-RESPONSE"
+    USING DC-WS-REQUEST
+          DC-HTTP-RESPONSE
+          DC-RESULT.
 ```
 
 Current coverage:
@@ -119,12 +129,102 @@ Current coverage:
 - unmasked frames
 - masked frame decoding
 - payload lengths up to 65535 bytes
+- opening handshake request/response helpers
 
 Not yet covered:
 
 - 64-bit payload lengths
-- handshake validation
 - live socket transport
+
+## Gateway
+
+Gateway payload helpers are available before the live WebSocket loop lands.
+
+```cobol
+CALL "DC-HEARTBEAT-BUILD"
+    USING DC-CLIENT-SEQUENCE
+          HEARTBEAT-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-IDENTIFY-BUILD"
+    USING DC-CLIENT
+          IDENTIFY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-RESUME-BUILD"
+    USING DC-CLIENT
+          RESUME-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-GATEWAY-HANDLE-PAYLOAD"
+    USING DC-CLIENT
+          GATEWAY-JSON
+          DC-EVENT
+          DC-RESULT.
+```
+
+Current coverage:
+
+- `HELLO` heartbeat interval extraction
+- `READY` session and user application
+- synthetic events for `HEARTBEAT_ACK`, `RECONNECT`, and `INVALID_SESSION`
+
+## Voice
+
+Voice session helpers are available for the pre-transport parts of the flow.
+
+```cobol
+CALL "DC-VOICE-SESSION-INIT"
+    USING DC-VOICE-SESSION
+          GUILD-ID
+          CHANNEL-ID
+          DC-RESULT.
+
+CALL "DC-VOICE-APPLY-STATE-UPDATE"
+    USING VOICE-STATE-JSON
+          DC-VOICE-SESSION
+          DC-RESULT.
+
+CALL "DC-VOICE-APPLY-SERVER-UPDATE"
+    USING VOICE-SERVER-JSON
+          DC-VOICE-SESSION
+          DC-RESULT.
+
+CALL "DC-VOICE-IDENTIFY-BUILD"
+    USING DC-VOICE-IDENTIFY
+          IDENTIFY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-VOICE-SELECT-PROTOCOL-BUILD"
+    USING DC-SELECT-PROTOCOL
+          SELECT-PROTOCOL-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-VOICE-RESUME-BUILD"
+    USING DC-VOICE-SESSION
+          RESUME-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-VOICE-HANDLE-PAYLOAD"
+    USING DC-VOICE-SESSION
+          VOICE-GATEWAY-JSON
+          DC-RESULT.
+
+CALL "DC-VOICE-UDP-DISCOVERY-BUILD"
+    USING DC-UDP-DISCOVERY
+          DC-RESULT.
+
+CALL "DC-VOICE-UDP-DISCOVERY-PARSE"
+    USING DC-UDP-DISCOVERY
+          DC-RESULT.
+```
+
+Current coverage:
+
+- voice session state/server payload application
+- voice identify, select-protocol, resume, and speaking payload builders
+- voice `HELLO`, `READY`, and session-description field application
+- UDP discovery request build and response parse
 
 ## Music Queue
 

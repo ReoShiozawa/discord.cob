@@ -1,7 +1,7 @@
 COBC ?= cobc
 COBFLAGS ?= -free -Wall -I src/copybooks
 SOURCES := $(shell find src -name '*.cob' | sort)
-TESTS := core-test json-test http-test websocket-test rtp-test music-queue-test
+TESTS := core-test json-test http-test websocket-test ws-handshake-test gateway-test voice-test rtp-test music-queue-test
 
 .PHONY: all build test clean
 

@@ -23,7 +23,7 @@ Next:
 
 ## Phase 2: HTTP / TLS / WebSocket
 
-Status: parser/codec utilities implemented, transport still pending.
+Status: parser/codec utilities and handshake helpers are implemented, transport still pending.
 
 Implemented:
 
@@ -32,25 +32,24 @@ Implemented:
 - Basic chunked body decoding
 - WebSocket frame encode/decode
 - Masked frame decoding
+- WebSocket handshake request builder
+- `Sec-WebSocket-Accept` validation
 
 Next:
 
-- Sec-WebSocket-Accept verification
 - HTTP request builder
-- WebSocket handshake request/response helpers
 - TLS research track
 
 ## Phase 3: Gateway
 
-Status: payload builders and event mapping skeleton.
+Status: payload builders, HELLO handling, READY application, and basic synthetic op events are implemented.
 
 Next:
 
 - Gateway URL request
-- WebSocket HELLO handling
 - Heartbeat loop
-- Identify
-- READY dispatch
+- live Identify/Resume send flow
+- broader dispatch coverage
 
 ## Phase 4: Interactions
 
@@ -68,12 +67,13 @@ Status:
 
 - RTP packet builder implemented for unencrypted local tests
 - Music queue implemented
-- Voice, UDP, crypto, and Opus reader are API skeletons
+- Voice payload builders, state/server updates, and UDP discovery helpers are implemented
+- Crypto transport and Opus reader remain skeletons
 
 Next:
 
-- Voice state/server update handling
-- UDP discovery packet parser
+- Voice Gateway WebSocket transport
+- Voice select-protocol/send flow
 - ChaCha20-Poly1305
 - Ogg Opus packet extraction
 - `/play file:<path>`

@@ -17,9 +17,9 @@
        MAIN.
            MOVE DC-CLIENT-INTENTS TO WS-INTENTS-TEXT
            MOVE SPACES TO DC-IDENTIFY-PAYLOAD
-           STRING
-               "{" DELIMITED BY SIZE
-               QUOTE DELIMITED BY SIZE
+	           STRING
+	               "{" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
                "op" DELIMITED BY SIZE
                QUOTE DELIMITED BY SIZE
                ":2," DELIMITED BY SIZE
@@ -32,17 +32,46 @@
                QUOTE DELIMITED BY SIZE
                ":" DELIMITED BY SIZE
                QUOTE DELIMITED BY SIZE
-               FUNCTION TRIM(DC-CLIENT-TOKEN) DELIMITED BY SIZE
-               QUOTE DELIMITED BY SIZE
-               "," DELIMITED BY SIZE
-               QUOTE DELIMITED BY SIZE
-               "intents" DELIMITED BY SIZE
-               QUOTE DELIMITED BY SIZE
-               ":" DELIMITED BY SIZE
-               FUNCTION TRIM(WS-INTENTS-TEXT) DELIMITED BY SIZE
-               "}}" DELIMITED BY SIZE
-               INTO DC-IDENTIFY-PAYLOAD
-           END-STRING
+	               FUNCTION TRIM(DC-CLIENT-TOKEN) DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "," DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "intents" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               ":" DELIMITED BY SIZE
+	               FUNCTION TRIM(WS-INTENTS-TEXT) DELIMITED BY SIZE
+	               "," DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "properties" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               ":{" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "os" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               ":" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "cobol" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "," DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "browser" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               ":" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "discord.cob" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "," DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "device" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               ":" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "discord.cob" DELIMITED BY SIZE
+	               QUOTE DELIMITED BY SIZE
+	               "}" DELIMITED BY SIZE
+	               "}}" DELIMITED BY SIZE
+	               INTO DC-IDENTIFY-PAYLOAD
+	           END-STRING
            CALL "DC-RESULT-OK" USING DC-RESULT
            GOBACK.
        END PROGRAM DC-IDENTIFY-BUILD.

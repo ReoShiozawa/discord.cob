@@ -1,0 +1,32 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-JSON-WRITE-STRING.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       01 DC-JSON-KEY-IN PIC X(128).
+       01 DC-JSON-VALUE-IN PIC X(512).
+       01 DC-JSON-OUT PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-JSON-KEY-IN
+           DC-JSON-VALUE-IN
+           DC-JSON-OUT
+           DC-RESULT.
+       MAIN.
+           MOVE SPACES TO DC-JSON-OUT
+           STRING
+               "{" DELIMITED BY SIZE
+               QUOTE DELIMITED BY SIZE
+               FUNCTION TRIM(DC-JSON-KEY-IN) DELIMITED BY SIZE
+               QUOTE DELIMITED BY SIZE
+               ":" DELIMITED BY SIZE
+               QUOTE DELIMITED BY SIZE
+               FUNCTION TRIM(DC-JSON-VALUE-IN) DELIMITED BY SIZE
+               QUOTE DELIMITED BY SIZE
+               "}" DELIMITED BY SIZE
+               INTO DC-JSON-OUT
+           END-STRING
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-JSON-WRITE-STRING.

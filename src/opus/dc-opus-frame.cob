@@ -1,0 +1,14 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-OPUS-FRAME-CLEAR.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-opus.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-OPUS-FRAME DC-RESULT.
+       MAIN.
+           INITIALIZE DC-OPUS-FRAME
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-OPUS-FRAME-CLEAR.

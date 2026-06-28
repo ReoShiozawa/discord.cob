@@ -1,0 +1,9 @@
+build/
+.env
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+*.c
+*.h

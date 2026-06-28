@@ -1,0 +1,13 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-EVENT-LOOP-TICK.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-CLIENT DC-RESULT.
+       MAIN.
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-EVENT-LOOP-TICK.

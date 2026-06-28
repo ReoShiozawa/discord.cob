@@ -1,0 +1,31 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-NONCE-INIT.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-crypto.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-NONCE-STATE DC-RESULT.
+       MAIN.
+           MOVE 0 TO DC-NONCE-COUNTER
+           MOVE LOW-VALUE TO DC-NONCE-BUFFER
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-NONCE-INIT.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-NONCE-NEXT.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-crypto.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-NONCE-STATE DC-RESULT.
+       MAIN.
+           ADD 1 TO DC-NONCE-COUNTER
+           MOVE LOW-VALUE TO DC-NONCE-BUFFER
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-NONCE-NEXT.

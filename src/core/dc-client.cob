@@ -1,0 +1,95 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-CLIENT-INIT.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-CONFIG DC-CLIENT DC-RESULT.
+       MAIN.
+           INITIALIZE DC-CLIENT
+           MOVE DC-BOT-TOKEN TO DC-CLIENT-TOKEN
+           MOVE DC-INTENTS TO DC-CLIENT-INTENTS
+           MOVE DC-LOG-LEVEL TO DC-CLIENT-LOG-LEVEL
+           IF DC-GATEWAY-VERSION = ZERO
+               MOVE 10 TO DC-CLIENT-GATEWAY-VERSION
+           ELSE
+               MOVE DC-GATEWAY-VERSION TO DC-CLIENT-GATEWAY-VERSION
+           END-IF
+           IF DC-VOICE-GATEWAY-VERSION = ZERO
+               MOVE 8 TO DC-CLIENT-VOICE-GATEWAY-VERSION
+           ELSE
+               MOVE DC-VOICE-GATEWAY-VERSION
+                   TO DC-CLIENT-VOICE-GATEWAY-VERSION
+           END-IF
+           IF DC-AUDIO-FRAME-MS = ZERO
+               MOVE 20 TO DC-CLIENT-AUDIO-FRAME-MS
+           ELSE
+               MOVE DC-AUDIO-FRAME-MS TO DC-CLIENT-AUDIO-FRAME-MS
+           END-IF
+           IF DC-AUDIO-SAMPLE-RATE = ZERO
+               MOVE 48000 TO DC-CLIENT-AUDIO-SAMPLE-RATE
+           ELSE
+               MOVE DC-AUDIO-SAMPLE-RATE
+                   TO DC-CLIENT-AUDIO-SAMPLE-RATE
+           END-IF
+           IF DC-AUDIO-CHANNELS = ZERO
+               MOVE 2 TO DC-CLIENT-AUDIO-CHANNELS
+           ELSE
+               MOVE DC-AUDIO-CHANNELS TO DC-CLIENT-AUDIO-CHANNELS
+           END-IF
+           MOVE 0 TO DC-CLIENT-STATE
+           MOVE 0 TO DC-CLIENT-SEQUENCE
+           MOVE 0 TO DC-HANDLER-COUNT
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-CLIENT-INIT.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-LOGIN.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-CLIENT DC-RESULT.
+       MAIN.
+           MOVE 1 TO DC-CLIENT-STATE
+           MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+           MOVE "DC_ERR_TLS" TO DC-ERROR-CODE
+           MOVE "TLS/WebSocket transport is not implemented yet."
+               TO DC-ERROR-MESSAGE
+           GOBACK.
+       END PROGRAM DC-LOGIN.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-CLIENT-SET-READY.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-CLIENT DC-RESULT.
+       MAIN.
+           MOVE 2 TO DC-CLIENT-STATE
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-CLIENT-SET-READY.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-CLIENT-DISCONNECT.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-CLIENT DC-RESULT.
+       MAIN.
+           MOVE 3 TO DC-CLIENT-STATE
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-CLIENT-DISCONNECT.

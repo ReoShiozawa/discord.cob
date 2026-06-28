@@ -1,0 +1,25 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-VOICE-APPLY-STATE-UPDATE.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-PATH PIC X(128).
+
+       LINKAGE SECTION.
+       01 DC-VOICE-JSON PIC X(8192).
+       COPY "discord-voice.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-VOICE-JSON
+           DC-VOICE-SESSION
+           DC-RESULT.
+       MAIN.
+           MOVE "$.d.session_id" TO WS-PATH
+           CALL "DC-JSON-GET-STRING"
+               USING DC-VOICE-JSON WS-PATH DC-VS-SESSION-ID DC-RESULT
+           IF DC-STATUS-CODE = DC-STATUS-OK
+               MOVE 1 TO DC-VS-STATE
+           END-IF
+           GOBACK.
+       END PROGRAM DC-VOICE-APPLY-STATE-UPDATE.

@@ -1,0 +1,18 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-AUDIO-SOURCE-FROM-FILE.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       01 DC-AUDIO-FILE-PATH PIC X(512).
+       COPY "discord-opus.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-AUDIO-FILE-PATH
+           DC-AUDIO-SOURCE
+           DC-RESULT.
+       MAIN.
+           MOVE DC-AUDIO-FILE-PATH TO DC-AUDIO-SOURCE
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-AUDIO-SOURCE-FROM-FILE.

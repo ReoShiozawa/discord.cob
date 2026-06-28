@@ -1,0 +1,36 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-OPUS-BUILD-SILENCE.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-opus.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-OPUS-FRAME DC-RESULT.
+       MAIN.
+           INITIALIZE DC-OPUS-FRAME
+           MOVE 3 TO DC-OPUS-LENGTH
+           MOVE FUNCTION CHAR(249) TO DC-OPUS-DATA(1:1)
+           MOVE FUNCTION CHAR(256) TO DC-OPUS-DATA(2:1)
+           MOVE FUNCTION CHAR(255) TO DC-OPUS-DATA(3:1)
+           MOVE 20 TO DC-OPUS-DURATION-MS
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-OPUS-BUILD-SILENCE.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-OPUS-ENCODE.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-opus.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-OPUS-FRAME DC-RESULT.
+       MAIN.
+           MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+           MOVE "DC_ERR_OPUS_UNSUPPORTED" TO DC-ERROR-CODE
+           MOVE "Opus encoding is not implemented yet."
+               TO DC-ERROR-MESSAGE
+           GOBACK.
+       END PROGRAM DC-OPUS-ENCODE.

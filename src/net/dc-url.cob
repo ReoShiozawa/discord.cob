@@ -1,0 +1,31 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-URL-BUILD-WSS.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-VERSION-TEXT PIC Z9.
+
+       LINKAGE SECTION.
+       01 DC-URL-ENDPOINT PIC X(256).
+       01 DC-URL-VERSION PIC 9(2) COMP-5.
+       01 DC-URL-OUT PIC X(512).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-URL-ENDPOINT
+           DC-URL-VERSION
+           DC-URL-OUT
+           DC-RESULT.
+       MAIN.
+           MOVE DC-URL-VERSION TO WS-VERSION-TEXT
+           MOVE SPACES TO DC-URL-OUT
+           STRING
+               "wss://" DELIMITED BY SIZE
+               FUNCTION TRIM(DC-URL-ENDPOINT) DELIMITED BY SIZE
+               "/?v=" DELIMITED BY SIZE
+               FUNCTION TRIM(WS-VERSION-TEXT) DELIMITED BY SIZE
+               INTO DC-URL-OUT
+           END-STRING
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-URL-BUILD-WSS.

@@ -1,0 +1,16 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-STATE-RESET.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-CLIENT DC-RESULT.
+       MAIN.
+           MOVE 0 TO DC-CLIENT-STATE
+           MOVE 0 TO DC-CLIENT-SEQUENCE
+           MOVE SPACES TO DC-CLIENT-SESSION-ID
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-STATE-RESET.

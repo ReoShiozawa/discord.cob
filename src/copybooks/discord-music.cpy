@@ -1,0 +1,35 @@
+       01 DC-MUSIC-TRACK.
+          05 DC-TRACK-ID PIC X(64).
+          05 DC-TRACK-TITLE PIC X(128).
+          05 DC-TRACK-SOURCE PIC X(512).
+          05 DC-TRACK-DURATION-MS PIC 9(12) COMP-5.
+          05 DC-TRACK-REQUESTER-ID PIC X(32).
+          05 DC-TRACK-STATUS PIC 9.
+             88 TRACK-WAITING VALUE 0.
+             88 TRACK-PLAYING VALUE 1.
+             88 TRACK-FINISHED VALUE 2.
+             88 TRACK-ERROR VALUE 3.
+
+       01 DC-MUSIC-QUEUE.
+          05 DC-MQ-GUILD-ID PIC X(32).
+          05 DC-MQ-SIZE PIC 9(4) COMP-5.
+          05 DC-MQ-HEAD PIC 9(4) COMP-5.
+          05 DC-MQ-TAIL PIC 9(4) COMP-5.
+          05 DC-MQ-TRACK OCCURS 100 TIMES.
+             10 DC-MQ-TRACK-ID PIC X(64).
+             10 DC-MQ-TITLE PIC X(128).
+             10 DC-MQ-SOURCE PIC X(512).
+             10 DC-MQ-REQUESTER-ID PIC X(32).
+             10 DC-MQ-STATUS PIC 9.
+
+       01 DC-AUDIO-PLAYER.
+          05 DC-PLAYER-STATE PIC 9.
+             88 PLAYER-IDLE VALUE 0.
+             88 PLAYER-PLAYING VALUE 1.
+             88 PLAYER-PAUSED VALUE 2.
+             88 PLAYER-STOPPED VALUE 3.
+          05 DC-PLAYER-GUILD-ID PIC X(32).
+          05 DC-PLAYER-TRACK-ID PIC X(64).
+          05 DC-PLAYER-FRAME-COUNT PIC 9(10) COMP-5.
+          05 DC-PLAYER-VOLUME PIC 9(3).
+          05 DC-PLAYER-EOF-FLAG PIC 9.

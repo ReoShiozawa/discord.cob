@@ -17,6 +17,129 @@
        END PROGRAM DC-VOICE-GATEWAY-CONNECT.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-VOICE-BUILD-WS-REQUEST.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-URL PIC X(512).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-voice.cpy".
+       COPY "discord-net.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-VOICE-SESSION
+           DC-WS-REQUEST
+           DC-RESULT.
+       MAIN.
+           INITIALIZE DC-WS-REQUEST
+           IF FUNCTION TRIM(DC-VS-ENDPOINT) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_VOICE_GATEWAY" TO DC-ERROR-CODE
+               MOVE "Voice endpoint is required before building a WS request."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+           CALL "DC-URL-BUILD-WSS"
+               USING DC-VS-ENDPOINT
+                     DC-CLIENT-VOICE-GATEWAY-VERSION
+                     WS-URL
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           CALL "DC-URL-SPLIT-WSS"
+               USING WS-URL
+                     DC-WS-HOST
+                     DC-WS-PATH
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           CALL "DC-WS-GENERATE-KEY"
+               USING DC-WS-SEC-KEY DC-RESULT
+           GOBACK.
+       END PROGRAM DC-VOICE-BUILD-WS-REQUEST.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-VOICE-NEXT-PAYLOAD.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-VOICE-IDENTIFY.
+          05 WS-VI-SERVER-ID PIC X(32).
+          05 WS-VI-USER-ID PIC X(32).
+          05 WS-VI-SESSION-ID PIC X(128).
+          05 WS-VI-TOKEN PIC X(256).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-voice.cpy".
+       01 DC-VOICE-ACTION-OUT PIC X(32).
+       01 DC-VOICE-PAYLOAD-OUT PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-VOICE-SESSION
+           DC-VOICE-ACTION-OUT
+           DC-VOICE-PAYLOAD-OUT
+           DC-RESULT.
+       MAIN.
+           MOVE SPACES TO DC-VOICE-ACTION-OUT
+           MOVE SPACES TO DC-VOICE-PAYLOAD-OUT
+
+           IF DC-VS-RESUME-REQUESTED = 1
+               CALL "DC-VOICE-RESUME-BUILD"
+                   USING DC-VOICE-SESSION DC-VOICE-PAYLOAD-OUT DC-RESULT
+               IF DC-STATUS-CODE NOT = DC-STATUS-OK
+                   GOBACK
+               END-IF
+               MOVE "RESUME" TO DC-VOICE-ACTION-OUT
+               MOVE 0 TO DC-VS-RESUME-REQUESTED
+               GOBACK
+           END-IF
+
+           IF DC-VS-IDENTIFY-NEEDED = 1
+               MOVE DC-VS-GUILD-ID TO WS-VI-SERVER-ID
+               MOVE DC-CLIENT-USER-ID TO WS-VI-USER-ID
+               MOVE DC-VS-SESSION-ID TO WS-VI-SESSION-ID
+               MOVE DC-VS-TOKEN TO WS-VI-TOKEN
+               CALL "DC-VOICE-IDENTIFY-BUILD"
+                   USING WS-VOICE-IDENTIFY
+                         DC-VOICE-PAYLOAD-OUT
+                         DC-RESULT
+               IF DC-STATUS-CODE NOT = DC-STATUS-OK
+                   GOBACK
+               END-IF
+               MOVE "IDENTIFY" TO DC-VOICE-ACTION-OUT
+               MOVE 0 TO DC-VS-IDENTIFY-NEEDED
+               GOBACK
+           END-IF
+
+           IF DC-VS-HEARTBEAT-DUE = 1
+               CALL "DC-VOICE-HEARTBEAT-BUILD"
+                   USING DC-VS-HEARTBEAT-NONCE
+                         DC-VOICE-PAYLOAD-OUT
+                         DC-RESULT
+               IF DC-STATUS-CODE NOT = DC-STATUS-OK
+                   GOBACK
+               END-IF
+               MOVE "HEARTBEAT" TO DC-VOICE-ACTION-OUT
+               ADD 1 TO DC-VS-HEARTBEAT-NONCE
+               MOVE 0 TO DC-VS-HEARTBEAT-DUE
+               MOVE 1 TO DC-VS-AWAITING-ACK
+               GOBACK
+           END-IF
+
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-VOICE-NEXT-PAYLOAD.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-IDENTIFY-BUILD.
 
        DATA DIVISION.
@@ -261,15 +384,22 @@
                        GOBACK
                    END-IF
                    MOVE WS-NUMBER TO DC-VS-HEARTBEAT-INTERVAL
+                   IF DC-VS-RESUME-REQUESTED NOT = 1
+                       MOVE 1 TO DC-VS-IDENTIFY-NEEDED
+                   END-IF
                WHEN 2
+                   MOVE 0 TO DC-VS-IDENTIFY-NEEDED
                    PERFORM APPLY-READY
                WHEN 4
                    PERFORM APPLY-SESSION-DESCRIPTION
                WHEN 6
-                   MOVE 1 TO DC-VS-UDP-READY-FLAG
-               WHEN 9
-                   MOVE 1 TO DC-VS-READY-FLAG
-                   MOVE 4 TO DC-VS-STATE
+                   MOVE 0 TO DC-VS-AWAITING-ACK
+                   MOVE 0 TO DC-VS-HEARTBEAT-DUE
+                WHEN 9
+                    MOVE 1 TO DC-VS-READY-FLAG
+                    MOVE 0 TO DC-VS-RESUME-REQUESTED
+                    MOVE 0 TO DC-VS-IDENTIFY-NEEDED
+                    MOVE 4 TO DC-VS-STATE
            END-EVALUATE
 
            CALL "DC-RESULT-OK" USING DC-RESULT
@@ -315,5 +445,7 @@
                MOVE WS-TEXT TO DC-VS-ENCRYPTION-MODE
            END-IF
            MOVE 1 TO DC-VS-READY-FLAG
+           MOVE 0 TO DC-VS-RESUME-REQUESTED
+           MOVE 0 TO DC-VS-IDENTIFY-NEEDED
            MOVE 4 TO DC-VS-STATE.
        END PROGRAM DC-VOICE-HANDLE-PAYLOAD.

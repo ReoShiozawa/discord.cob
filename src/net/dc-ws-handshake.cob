@@ -48,7 +48,9 @@
        WORKING-STORAGE SECTION.
        01 WS-REQUEST-LINE PIC X(1024).
        01 WS-HOST-LINE PIC X(512).
+       01 WS-HOST-VALUE PIC X(512).
        01 WS-KEY-LINE PIC X(128).
+       01 WS-PORT-TEXT PIC 9(5).
 
        LINKAGE SECTION.
        COPY "discord-net.cpy".
@@ -69,6 +71,7 @@
 
            MOVE SPACES TO WS-REQUEST-LINE
            MOVE SPACES TO WS-HOST-LINE
+           MOVE SPACES TO WS-HOST-VALUE
            MOVE SPACES TO WS-KEY-LINE
            MOVE SPACES TO DC-WS-BUFFER-DATA
 
@@ -78,9 +81,21 @@
                " HTTP/1.1" DELIMITED BY SIZE
                INTO WS-REQUEST-LINE
            END-STRING
+           IF DC-WS-REQUEST-PORT > 0
+              AND DC-WS-REQUEST-PORT NOT = 443
+               MOVE DC-WS-REQUEST-PORT TO WS-PORT-TEXT
+               STRING
+                   FUNCTION TRIM(DC-WS-HOST) DELIMITED BY SIZE
+                   ":" DELIMITED BY SIZE
+                   FUNCTION TRIM(WS-PORT-TEXT) DELIMITED BY SIZE
+                   INTO WS-HOST-VALUE
+               END-STRING
+           ELSE
+               MOVE DC-WS-HOST TO WS-HOST-VALUE
+           END-IF
            STRING
                "Host: " DELIMITED BY SIZE
-               FUNCTION TRIM(DC-WS-HOST) DELIMITED BY SIZE
+               FUNCTION TRIM(WS-HOST-VALUE) DELIMITED BY SIZE
                INTO WS-HOST-LINE
            END-STRING
            STRING

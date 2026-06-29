@@ -23,17 +23,16 @@ Implemented today:
 
 - Core client state, result helpers, event registration, and dispatch
 - JSON validation and JSON path extraction for Discord-style payloads
-- HTTP response parsing, header lookup, and basic chunked transfer decoding
-- WebSocket frame encode/decode, including masked frame decoding
+- In-memory TCP/TLS transport fixtures and handle management
+- OS-backed TCP/TLS transport through spawned `nc` / `openssl s_client` processes
+- HTTP response parsing, header lookup, basic chunked transfer decoding, and mock-backed high-level requests
+- WebSocket frame encode/decode, masked client/server frame handling, in-memory session flow, and opt-in live TLS-backed session flow
 - RTP header and packet building
 - Opus silence frame generation
 - Music queue primitives and track helpers
 
 In progress or not implemented yet:
 
-- TCP socket transport
-- TLS client transport
-- WebSocket handshake transport
 - Discord Gateway session handling
 - UDP voice transport
 - Voice encryption
@@ -56,7 +55,7 @@ It is not yet a production-ready Discord bot library.
 src/
   core/          client state, dispatcher, result helpers
   json/          JSON validation and path readers
-  net/           HTTP and WebSocket codecs, future transport layers
+  net/           HTTP, transport, and WebSocket layers
   gateway/       Gateway payload builders and event mapping
   voice/         voice session state and future UDP/gateway logic
   rtp/           RTP packet and sequence/timestamp builders
@@ -92,7 +91,7 @@ CALL "DC-LOGIN"
           DC-RESULT.
 ```
 
-That higher-level API exists today as a scaffold. Some lower layers are already functional, while network transport and Discord session flows are still being implemented.
+That higher-level API exists today as a scaffold. Core transport and protocol primitives are already functional, while Discord session orchestration and voice flows are still being implemented.
 
 ## Quick Start
 
@@ -123,6 +122,7 @@ Current test executables:
 - `core-test`
 - `json-test`
 - `http-test`
+- `transport-test`
 - `websocket-test`
 - `rtp-test`
 - `music-queue-test`

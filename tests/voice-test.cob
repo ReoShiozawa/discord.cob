@@ -3,11 +3,14 @@
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
+       COPY "discord-client.cpy".
        COPY "discord-voice.cpy".
        COPY "discord-net.cpy".
        COPY "discord-result.cpy".
        01 WS-GUILD-ID PIC X(32) VALUE "guild-1".
        01 WS-CHANNEL-ID PIC X(32) VALUE "chan-1".
+       01 WS-EMPTY-CHANNEL PIC X(32).
+       01 WS-ACTION PIC X(32).
        01 WS-JSON PIC X(8192).
        01 WS-PAYLOAD PIC X(8192).
        01 WS-FAILURES PIC 9(4) COMP-5 VALUE 0.
@@ -18,11 +21,17 @@
            PERFORM TEST-SESSION-INIT
            PERFORM TEST-STATE-UPDATE
            PERFORM TEST-SERVER-UPDATE
+           PERFORM TEST-VOICE-NEXT-IDENTIFY
+           PERFORM TEST-VOICE-STATE-UPDATE-BUILD
            PERFORM TEST-VOICE-IDENTIFY-BUILD
            PERFORM TEST-SELECT-PROTOCOL-BUILD
            PERFORM TEST-SPEAKING-BUILD
+           PERFORM TEST-VOICE-WS-REQUEST
+           PERFORM TEST-VOICE-JOIN-LEAVE
            PERFORM TEST-VOICE-HANDLE-PAYLOAD
-           PERFORM TEST-UDP-DISCOVERY
+           PERFORM TEST-VOICE-NEXT-HEARTBEAT
+            PERFORM TEST-UDP-DISCOVERY
+           PERFORM TEST-VOICE-NEXT-RESUME
            PERFORM TEST-VOICE-RESUME-BUILD
            PERFORM FINISH-TEST.
 
@@ -71,6 +80,53 @@
                ADD 1 TO WS-FAILURES
            END-IF.
 
+       TEST-VOICE-NEXT-IDENTIFY.
+           MOVE "user-1" TO DC-CLIENT-USER-ID
+           MOVE SPACES TO WS-PAYLOAD
+           MOVE SPACES TO WS-ACTION
+           CALL "DC-VOICE-NEXT-PAYLOAD"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     WS-ACTION
+                     WS-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-ACTION) NOT = "IDENTIFY"
+               DISPLAY "voice-test: next voice identify mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-IDENTIFY-NEEDED NOT = 0
+               DISPLAY "voice-test: voice identify flag not cleared"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-VOICE-STATE-UPDATE-BUILD.
+           MOVE SPACES TO WS-PAYLOAD
+           CALL "DC-VOICE-STATE-UPDATE-BUILD"
+               USING WS-GUILD-ID
+                     WS-CHANNEL-ID
+                     WS-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-PAYLOAD)
+               NOT = '{"op":4,"d":{"guild_id":"guild-1","channel_id":"chan-1","self_mute":false,"self_deaf":false}}'
+               DISPLAY "voice-test: voice state update payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           MOVE SPACES TO WS-PAYLOAD
+           CALL "DC-VOICE-STATE-UPDATE-BUILD"
+               USING WS-GUILD-ID
+                     WS-EMPTY-CHANNEL
+                     WS-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-PAYLOAD)
+               NOT = '{"op":4,"d":{"guild_id":"guild-1","channel_id":null,"self_mute":false,"self_deaf":false}}'
+               DISPLAY "voice-test: voice leave payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-VOICE-IDENTIFY-BUILD.
            MOVE "guild-1" TO DC-VI-SERVER-ID
            MOVE "user-1" TO DC-VI-USER-ID
@@ -112,6 +168,90 @@
            IF FUNCTION TRIM(WS-PAYLOAD)
                NOT = '{"op":5,"d":{"speaking":1,"delay":0,"ssrc":4242}}'
                DISPLAY "voice-test: speaking payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-VOICE-WS-REQUEST.
+           INITIALIZE DC-CONFIG
+           MOVE 8 TO DC-VOICE-GATEWAY-VERSION
+           CALL "DC-CLIENT-INIT"
+               USING DC-CONFIG DC-CLIENT DC-RESULT
+           PERFORM CHECK-OK
+           INITIALIZE DC-WS-REQUEST
+           CALL "DC-VOICE-BUILD-WS-REQUEST"
+               USING DC-CLIENT DC-VOICE-SESSION DC-WS-REQUEST DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-WS-HOST) NOT = "voice.example.test"
+               DISPLAY "voice-test: voice ws host mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-WS-PATH) NOT = "/?v=8"
+               DISPLAY "voice-test: voice ws path mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-WS-SEC-KEY) = SPACES
+               DISPLAY "voice-test: voice ws key missing"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-VOICE-JOIN-LEAVE.
+           INITIALIZE DC-CONFIG
+           MOVE "token" TO DC-BOT-TOKEN
+           CALL "DC-CLIENT-INIT"
+               USING DC-CONFIG DC-CLIENT DC-RESULT
+           PERFORM CHECK-OK
+           MOVE 2 TO DC-CLIENT-STATE
+
+           MOVE SPACES TO WS-ACTION
+           MOVE SPACES TO WS-PAYLOAD
+           CALL "DC-VOICE-JOIN"
+               USING DC-CLIENT
+                     WS-GUILD-ID
+                     WS-CHANNEL-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-CLIENT-GW-COMMAND-QUEUED NOT = 1
+               DISPLAY "voice-test: voice join queue flag mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           CALL "DC-GATEWAY-NEXT-PAYLOAD"
+               USING DC-CLIENT
+                     WS-ACTION
+                     WS-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-ACTION) NOT = "VOICE_STATE_UPDATE"
+               DISPLAY "voice-test: voice join action mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(WS-PAYLOAD)
+               NOT = '{"op":4,"d":{"guild_id":"guild-1","channel_id":"chan-1","self_mute":false,"self_deaf":false}}'
+               DISPLAY "voice-test: voice join queued payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           MOVE SPACES TO WS-ACTION
+           MOVE SPACES TO WS-PAYLOAD
+           CALL "DC-VOICE-LEAVE"
+               USING DC-CLIENT
+                     WS-GUILD-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           CALL "DC-GATEWAY-NEXT-PAYLOAD"
+               USING DC-CLIENT
+                     WS-ACTION
+                     WS-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-ACTION) NOT = "VOICE_STATE_UPDATE"
+               DISPLAY "voice-test: voice leave action mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(WS-PAYLOAD)
+               NOT = '{"op":4,"d":{"guild_id":"guild-1","channel_id":null,"self_mute":false,"self_deaf":false}}'
+               DISPLAY "voice-test: voice leave queued payload mismatch"
                ADD 1 TO WS-FAILURES
            END-IF.
 
@@ -174,6 +314,31 @@
                ADD 1 TO WS-FAILURES
            END-IF.
 
+       TEST-VOICE-NEXT-HEARTBEAT.
+           MOVE 1 TO DC-VS-HEARTBEAT-DUE
+           MOVE 0 TO DC-VS-HEARTBEAT-NONCE
+           MOVE SPACES TO WS-PAYLOAD
+           MOVE SPACES TO WS-ACTION
+           CALL "DC-VOICE-NEXT-PAYLOAD"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     WS-ACTION
+                     WS-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-ACTION) NOT = "HEARTBEAT"
+               DISPLAY "voice-test: next voice heartbeat mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-HEARTBEAT-NONCE NOT = 1
+               DISPLAY "voice-test: voice heartbeat nonce mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-AWAITING-ACK NOT = 1
+               DISPLAY "voice-test: voice heartbeat ack flag mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-UDP-DISCOVERY.
            INITIALIZE DC-UDP-DISCOVERY
            MOVE 4242 TO DC-UD-SSRC
@@ -211,6 +376,26 @@
            IF FUNCTION TRIM(WS-PAYLOAD)
                NOT = '{"op":7,"d":{"server_id":"guild-1","session_id":"voice-sess","token":"voice-token"}}'
                DISPLAY "voice-test: voice resume payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-VOICE-NEXT-RESUME.
+           MOVE 1 TO DC-VS-RESUME-REQUESTED
+           MOVE SPACES TO WS-PAYLOAD
+           MOVE SPACES TO WS-ACTION
+           CALL "DC-VOICE-NEXT-PAYLOAD"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     WS-ACTION
+                     WS-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-ACTION) NOT = "RESUME"
+               DISPLAY "voice-test: next voice resume mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-RESUME-REQUESTED NOT = 0
+               DISPLAY "voice-test: voice resume flag not cleared"
                ADD 1 TO WS-FAILURES
            END-IF.
 

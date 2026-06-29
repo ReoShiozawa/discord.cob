@@ -23,11 +23,15 @@
 	               GOBACK
 	           END-IF
 	           MOVE WS-TEXT TO DC-VS-TOKEN
-	           MOVE "$.d.endpoint" TO WS-PATH
-	           CALL "DC-JSON-GET-STRING"
-	               USING DC-VOICE-JSON WS-PATH WS-TEXT DC-RESULT
-	           IF DC-STATUS-CODE = DC-STATUS-OK
-	               MOVE WS-TEXT TO DC-VS-ENDPOINT
-	           END-IF
-	           GOBACK.
+           MOVE "$.d.endpoint" TO WS-PATH
+           CALL "DC-JSON-GET-STRING"
+               USING DC-VOICE-JSON WS-PATH WS-TEXT DC-RESULT
+           IF DC-STATUS-CODE = DC-STATUS-OK
+               MOVE WS-TEXT TO DC-VS-ENDPOINT
+               IF FUNCTION TRIM(DC-VS-SESSION-ID) NOT = SPACES
+                   MOVE 1 TO DC-VS-IDENTIFY-NEEDED
+                   MOVE 2 TO DC-VS-STATE
+               END-IF
+           END-IF
+           GOBACK.
        END PROGRAM DC-VOICE-APPLY-SERVER-UPDATE.

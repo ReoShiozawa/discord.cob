@@ -81,9 +81,24 @@ Voice encryption will wrap this in a later phase.
 
 ## HTTP
 
-Raw HTTP response parsing is available even though socket transport is not.
+Raw HTTP response parsing and mock-backed HTTPS request execution are available. Live sockets are still pending.
 
 ```cobol
+CALL "DC-HTTP-BUILD-REQUEST"
+    USING DC-HTTP-REQUEST
+          DC-HTTP-BUFFER
+          DC-RESULT.
+
+CALL "DC-HTTP-GET"
+    USING DC-HTTP-REQUEST
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-HTTP-POST"
+    USING DC-HTTP-REQUEST
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
 CALL "DC-HTTP-PARSE-RESPONSE"
     USING RAW-RESPONSE
           DC-HTTP-RESPONSE
@@ -96,11 +111,55 @@ CALL "DC-HTTP-GET-HEADER"
           DC-RESULT.
 ```
 
-`Content-Length` and basic `Transfer-Encoding: chunked` bodies are supported.
+`Content-Length`, basic `Transfer-Encoding: chunked` bodies, raw request generation, fixture-driven TLS execution, and live TLS-backed request execution are supported.
+
+## TCP / TLS
+
+The transport layer provides both in-memory fixtures and OS-backed process transports. The live path currently uses spawned `nc` and `openssl s_client` processes behind the same handle API.
+
+```cobol
+CALL "DC-TCP-CONNECT"
+    USING HOST
+          PORT
+          TCP-HANDLE
+          DC-RESULT.
+
+CALL "DC-TLS-CONNECT"
+    USING HOST
+          PORT
+          TLS-HANDLE
+          DC-RESULT.
+
+CALL "DC-TLS-CLOSE"
+    USING TLS-HANDLE
+          DC-RESULT.
+
+CALL "DC-TLS-MOCK-SET-RESPONSE"
+    USING HOST
+          PORT
+          DC-HTTP-BUFFER
+          DC-RESULT.
+```
+
+## URL
+
+```cobol
+CALL "DC-URL-BUILD-WSS"
+    USING ENDPOINT
+          VERSION
+          URL-OUT
+          DC-RESULT.
+
+CALL "DC-URL-SPLIT-WSS"
+    USING URL-IN
+          HOST-OUT
+          PATH-OUT
+          DC-RESULT.
+```
 
 ## WebSocket
 
-Transport is still pending, but frame encoding, decoding, and handshake helpers are available.
+The WebSocket layer supports protocol-level connect/send/recv in an in-memory session and an opt-in live TLS-backed session path.
 
 ```cobol
 CALL "DC-WS-ENCODE-FRAME"
@@ -122,25 +181,59 @@ CALL "DC-WS-VALIDATE-HS-RESPONSE"
     USING DC-WS-REQUEST
           DC-HTTP-RESPONSE
           DC-RESULT.
+
+CALL "DC-WS-CONNECT"
+    USING DC-WS-REQUEST
+          DC-WS-SESSION
+          DC-RESULT.
+
+CALL "DC-WS-SEND-TEXT"
+    USING DC-WS-SESSION
+          TEXT-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-WS-RECV"
+    USING DC-WS-SESSION
+          DC-WS-FRAME
+          DC-RESULT.
 ```
 
 Current coverage:
 
 - unmasked frames
-- masked frame decoding
+- masked client and server frame handling
 - payload lengths up to 65535 bytes
 - opening handshake request/response helpers
+- protocol-level connect/send/recv with in-memory session buffers
+- opt-in live TLS-backed connect/send/recv
+- ping to pong auto-response
+- close frame state handling
 
 Not yet covered:
 
 - 64-bit payload lengths
-- live socket transport
+- buffered multi-read / multi-frame live streaming
 
 ## Gateway
 
-Gateway payload helpers are available before the live WebSocket loop lands.
+Gateway payload helpers are available before the full Discord Gateway session loop lands.
 
 ```cobol
+CALL "DC-GATEWAY-BUILD-URL-REQUEST"
+    USING DC-CLIENT
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-GATEWAY-APPLY-URL-RESPONSE"
+    USING DC-CLIENT
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-GATEWAY-BUILD-WS-REQUEST"
+    USING DC-CLIENT
+          DC-WS-REQUEST
+          DC-RESULT.
+
 CALL "DC-HEARTBEAT-BUILD"
     USING DC-CLIENT-SEQUENCE
           HEARTBEAT-PAYLOAD
@@ -156,6 +249,18 @@ CALL "DC-RESUME-BUILD"
           RESUME-PAYLOAD
           DC-RESULT.
 
+CALL "DC-GATEWAY-QUEUE-PAYLOAD"
+    USING DC-CLIENT
+          ACTION-NAME
+          JSON-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-GATEWAY-NEXT-PAYLOAD"
+    USING DC-CLIENT
+          ACTION-NAME
+          JSON-PAYLOAD
+          DC-RESULT.
+
 CALL "DC-GATEWAY-HANDLE-PAYLOAD"
     USING DC-CLIENT
           GATEWAY-JSON
@@ -165,6 +270,11 @@ CALL "DC-GATEWAY-HANDLE-PAYLOAD"
 
 Current coverage:
 
+- `/api/vX/gateway/bot` request preparation
+- gateway URL response application
+- gateway WS request preparation
+- outbound payload queueing
+- next-payload planning for Identify, Resume, Heartbeat, and queued sends
 - `HELLO` heartbeat interval extraction
 - `READY` session and user application
 - synthetic events for `HEARTBEAT_ACK`, `RECONNECT`, and `INVALID_SESSION`
@@ -178,6 +288,23 @@ CALL "DC-VOICE-SESSION-INIT"
     USING DC-VOICE-SESSION
           GUILD-ID
           CHANNEL-ID
+          DC-RESULT.
+
+CALL "DC-VOICE-STATE-UPDATE-BUILD"
+    USING GUILD-ID
+          CHANNEL-ID
+          GATEWAY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-VOICE-JOIN"
+    USING DC-CLIENT
+          GUILD-ID
+          CHANNEL-ID
+          DC-RESULT.
+
+CALL "DC-VOICE-LEAVE"
+    USING DC-CLIENT
+          GUILD-ID
           DC-RESULT.
 
 CALL "DC-VOICE-APPLY-STATE-UPDATE"
@@ -205,6 +332,12 @@ CALL "DC-VOICE-RESUME-BUILD"
           RESUME-PAYLOAD
           DC-RESULT.
 
+CALL "DC-VOICE-BUILD-WS-REQUEST"
+    USING DC-CLIENT
+          DC-VOICE-SESSION
+          DC-WS-REQUEST
+          DC-RESULT.
+
 CALL "DC-VOICE-HANDLE-PAYLOAD"
     USING DC-VOICE-SESSION
           VOICE-GATEWAY-JSON
@@ -222,7 +355,10 @@ CALL "DC-VOICE-UDP-DISCOVERY-PARSE"
 Current coverage:
 
 - voice session state/server payload application
+- main-gateway voice state update payload building
+- queued voice join/leave requests through the gateway planner
 - voice identify, select-protocol, resume, and speaking payload builders
+- voice WS request preparation
 - voice `HELLO`, `READY`, and session-description field application
 - UDP discovery request build and response parse
 

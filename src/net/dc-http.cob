@@ -396,9 +396,248 @@
        END PROGRAM DC-HTTP-DECODE-CHUNKED.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-HTTP-BUILD-REQUEST.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-BODY-LEN-TEXT PIC Z(8)9.
+       01 WS-REQUEST-LINE PIC X(1024).
+       01 WS-HOST-LINE PIC X(512).
+       01 WS-AUTH-LINE PIC X(384).
+       01 WS-TYPE-LINE PIC X(192).
+       01 WS-LENGTH-LINE PIC X(64).
+
+       LINKAGE SECTION.
+       COPY "discord-net.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-HTTP-REQUEST
+           DC-HTTP-BUFFER
+           DC-RESULT.
+       MAIN.
+           MOVE SPACES TO DC-HTTP-BUFFER-DATA
+           MOVE 0 TO DC-HTTP-BUFFER-LENGTH
+           MOVE SPACES TO WS-REQUEST-LINE
+           MOVE SPACES TO WS-HOST-LINE
+           MOVE SPACES TO WS-AUTH-LINE
+           MOVE SPACES TO WS-TYPE-LINE
+           MOVE SPACES TO WS-LENGTH-LINE
+
+           IF FUNCTION TRIM(DC-HTTP-METHOD) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_HTTP" TO DC-ERROR-CODE
+               MOVE "HTTP request method is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+           IF FUNCTION TRIM(DC-HTTP-HOST) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_HTTP" TO DC-ERROR-CODE
+               MOVE "HTTP request host is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+           IF FUNCTION TRIM(DC-HTTP-PATH) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_HTTP" TO DC-ERROR-CODE
+               MOVE "HTTP request path is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+           IF DC-HTTP-BODY-LENGTH < 0 OR DC-HTTP-BODY-LENGTH > 8192
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_HTTP" TO DC-ERROR-CODE
+               MOVE "HTTP request body length is invalid."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           STRING
+               FUNCTION TRIM(DC-HTTP-METHOD) DELIMITED BY SIZE
+               " " DELIMITED BY SIZE
+               FUNCTION TRIM(DC-HTTP-PATH) DELIMITED BY SIZE
+               " HTTP/1.1" DELIMITED BY SIZE
+               INTO WS-REQUEST-LINE
+           END-STRING
+           STRING
+               "Host: " DELIMITED BY SIZE
+               FUNCTION TRIM(DC-HTTP-HOST) DELIMITED BY SIZE
+               INTO WS-HOST-LINE
+           END-STRING
+
+           STRING
+               FUNCTION TRIM(WS-REQUEST-LINE) DELIMITED BY SIZE
+               X"0D0A" DELIMITED BY SIZE
+               FUNCTION TRIM(WS-HOST-LINE) DELIMITED BY SIZE
+               X"0D0A" DELIMITED BY SIZE
+               INTO DC-HTTP-BUFFER-DATA
+           END-STRING
+
+           IF FUNCTION TRIM(DC-HTTP-AUTHORIZATION) NOT = SPACES
+               STRING
+                   "Authorization: " DELIMITED BY SIZE
+                   FUNCTION TRIM(DC-HTTP-AUTHORIZATION) DELIMITED BY SIZE
+                   INTO WS-AUTH-LINE
+               END-STRING
+               STRING
+                   FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING)
+                       DELIMITED BY SIZE
+                   FUNCTION TRIM(WS-AUTH-LINE) DELIMITED BY SIZE
+                   X"0D0A" DELIMITED BY SIZE
+                   INTO DC-HTTP-BUFFER-DATA
+               END-STRING
+           END-IF
+
+           IF FUNCTION TRIM(DC-HTTP-CONTENT-TYPE) NOT = SPACES
+               STRING
+                   "Content-Type: " DELIMITED BY SIZE
+                   FUNCTION TRIM(DC-HTTP-CONTENT-TYPE) DELIMITED BY SIZE
+                   INTO WS-TYPE-LINE
+               END-STRING
+               STRING
+                   FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING)
+                       DELIMITED BY SIZE
+                   FUNCTION TRIM(WS-TYPE-LINE) DELIMITED BY SIZE
+                   X"0D0A" DELIMITED BY SIZE
+                   INTO DC-HTTP-BUFFER-DATA
+               END-STRING
+           END-IF
+
+           IF DC-HTTP-BODY-LENGTH > 0
+               MOVE DC-HTTP-BODY-LENGTH TO WS-BODY-LEN-TEXT
+               STRING
+                   "Content-Length: " DELIMITED BY SIZE
+                   FUNCTION TRIM(WS-BODY-LEN-TEXT) DELIMITED BY SIZE
+                   INTO WS-LENGTH-LINE
+               END-STRING
+               STRING
+                   FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING)
+                       DELIMITED BY SIZE
+                   FUNCTION TRIM(WS-LENGTH-LINE) DELIMITED BY SIZE
+                   X"0D0A" DELIMITED BY SIZE
+                   INTO DC-HTTP-BUFFER-DATA
+               END-STRING
+           END-IF
+
+           STRING
+               FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING)
+                   DELIMITED BY SIZE
+               X"0D0A" DELIMITED BY SIZE
+               INTO DC-HTTP-BUFFER-DATA
+           END-STRING
+
+           IF DC-HTTP-BODY-LENGTH > 0
+               STRING
+                   FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING)
+                       DELIMITED BY SIZE
+                   DC-HTTP-BODY(1:DC-HTTP-BODY-LENGTH) DELIMITED BY SIZE
+                   INTO DC-HTTP-BUFFER-DATA
+               END-STRING
+           END-IF
+
+           MOVE FUNCTION LENGTH(
+               FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING))
+               TO DC-HTTP-BUFFER-LENGTH
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-HTTP-BUILD-REQUEST.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-HTTP-EXECUTE.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-TLS-HANDLE PIC 9(10) COMP-5.
+       01 WS-TLS-PORT PIC 9(5) COMP-5 VALUE 443.
+       01 WS-METHOD PIC X(8).
+       01 WS-CLEANUP-RESULT.
+          05 WS-CLEANUP-STATUS PIC S9(9) COMP-5.
+          05 WS-CLEANUP-ERROR-CODE PIC X(64).
+          05 WS-CLEANUP-ERROR-MESSAGE PIC X(256).
+       01 WS-HTTP-BUFFER.
+          05 WS-HTTP-BUFFER-LENGTH PIC 9(9) COMP-5.
+          05 WS-HTTP-BUFFER-DATA PIC X(16384).
+       01 WS-RAW-RESPONSE-TEXT PIC X(8192).
+       01 WS-RAW-RESPONSE.
+          05 WS-RAW-RESPONSE-LENGTH PIC 9(9) COMP-5.
+          05 WS-RAW-RESPONSE-DATA PIC X(16384).
+
+       LINKAGE SECTION.
+       COPY "discord-net.cpy".
+       01 DC-HTTP-METHOD-IN PIC X(8).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-HTTP-REQUEST
+           DC-HTTP-RESPONSE
+           DC-HTTP-METHOD-IN
+           DC-RESULT.
+       MAIN.
+           MOVE 0 TO WS-TLS-HANDLE
+           MOVE DC-HTTP-METHOD-IN TO WS-METHOD
+           MOVE WS-METHOD TO DC-HTTP-METHOD
+           CALL "DC-HTTP-BUILD-REQUEST"
+               USING DC-HTTP-REQUEST
+                     WS-HTTP-BUFFER
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-TLS-CONNECT"
+               USING DC-HTTP-HOST
+                     WS-TLS-PORT
+                     WS-TLS-HANDLE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-TLS-SEND"
+               USING WS-TLS-HANDLE
+                     WS-HTTP-BUFFER
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               CALL "DC-TLS-CLOSE"
+                   USING WS-TLS-HANDLE
+                         WS-CLEANUP-RESULT
+               GOBACK
+           END-IF
+
+           CALL "DC-TLS-RECV"
+               USING WS-TLS-HANDLE
+                     WS-RAW-RESPONSE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               CALL "DC-TLS-CLOSE"
+                   USING WS-TLS-HANDLE
+                         WS-CLEANUP-RESULT
+               GOBACK
+           END-IF
+
+           MOVE SPACES TO WS-RAW-RESPONSE-TEXT
+           IF WS-RAW-RESPONSE-LENGTH > 0
+               MOVE WS-RAW-RESPONSE-DATA(1:WS-RAW-RESPONSE-LENGTH)
+                   TO WS-RAW-RESPONSE-TEXT(1:WS-RAW-RESPONSE-LENGTH)
+           END-IF
+           CALL "DC-HTTP-PARSE-RESPONSE"
+               USING WS-RAW-RESPONSE-TEXT
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           CALL "DC-TLS-CLOSE"
+               USING WS-TLS-HANDLE
+                     WS-CLEANUP-RESULT
+           GOBACK.
+       END PROGRAM DC-HTTP-EXECUTE.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-HTTP-GET.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-METHOD PIC X(8) VALUE "GET".
+
        LINKAGE SECTION.
        COPY "discord-net.cpy".
        COPY "discord-result.cpy".
@@ -408,10 +647,11 @@
            DC-HTTP-RESPONSE
            DC-RESULT.
        MAIN.
-           MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-           MOVE "DC_ERR_HTTP_NOT_IMPLEMENTED" TO DC-ERROR-CODE
-           MOVE "HTTP transport is not implemented yet."
-               TO DC-ERROR-MESSAGE
+           CALL "DC-HTTP-EXECUTE"
+               USING DC-HTTP-REQUEST
+                     DC-HTTP-RESPONSE
+                     WS-METHOD
+                     DC-RESULT
            GOBACK.
        END PROGRAM DC-HTTP-GET.
 
@@ -419,6 +659,9 @@
        PROGRAM-ID. DC-HTTP-POST.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-METHOD PIC X(8) VALUE "POST".
+
        LINKAGE SECTION.
        COPY "discord-net.cpy".
        COPY "discord-result.cpy".
@@ -428,10 +671,11 @@
            DC-HTTP-RESPONSE
            DC-RESULT.
        MAIN.
-           MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-           MOVE "DC_ERR_HTTP_NOT_IMPLEMENTED" TO DC-ERROR-CODE
-           MOVE "HTTP transport is not implemented yet."
-               TO DC-ERROR-MESSAGE
+           CALL "DC-HTTP-EXECUTE"
+               USING DC-HTTP-REQUEST
+                     DC-HTTP-RESPONSE
+                     WS-METHOD
+                     DC-RESULT
            GOBACK.
        END PROGRAM DC-HTTP-POST.
 
@@ -439,6 +683,9 @@
        PROGRAM-ID. DC-HTTP-PATCH.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-METHOD PIC X(8) VALUE "PATCH".
+
        LINKAGE SECTION.
        COPY "discord-net.cpy".
        COPY "discord-result.cpy".
@@ -448,10 +695,11 @@
            DC-HTTP-RESPONSE
            DC-RESULT.
        MAIN.
-           MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-           MOVE "DC_ERR_HTTP_NOT_IMPLEMENTED" TO DC-ERROR-CODE
-           MOVE "HTTP transport is not implemented yet."
-               TO DC-ERROR-MESSAGE
+           CALL "DC-HTTP-EXECUTE"
+               USING DC-HTTP-REQUEST
+                     DC-HTTP-RESPONSE
+                     WS-METHOD
+                     DC-RESULT
            GOBACK.
        END PROGRAM DC-HTTP-PATCH.
 
@@ -459,6 +707,9 @@
        PROGRAM-ID. DC-HTTP-DELETE.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-METHOD PIC X(8) VALUE "DELETE".
+
        LINKAGE SECTION.
        COPY "discord-net.cpy".
        COPY "discord-result.cpy".
@@ -468,9 +719,10 @@
            DC-HTTP-RESPONSE
            DC-RESULT.
        MAIN.
-           MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-           MOVE "DC_ERR_HTTP_NOT_IMPLEMENTED" TO DC-ERROR-CODE
-           MOVE "HTTP transport is not implemented yet."
-               TO DC-ERROR-MESSAGE
+           CALL "DC-HTTP-EXECUTE"
+               USING DC-HTTP-REQUEST
+                     DC-HTTP-RESPONSE
+                     WS-METHOD
+                     DC-RESULT
            GOBACK.
        END PROGRAM DC-HTTP-DELETE.

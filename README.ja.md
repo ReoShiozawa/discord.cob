@@ -2,78 +2,103 @@
 
 [English README](README.md)
 
-`discord.cob` は、COBOL で Discord Bot を構築するための実験的なオープンソースフレームワークです。
-最終目標はかなり大きく、Discord Gateway、Voice、Music Bot の層を COBOL で実装しつつ、Bot 利用側には分かりやすい呼び出し型 API を提供することを目指しています。
+`discord.cob` は、COBOL で Discord Bot を組み立てるためのオープンソース実験プロジェクトです。
+ただの「COBOL から HTTP を叩くサンプル」ではなく、Discord Gateway、WebSocket、Voice、RTP、音楽 Bot までを視野に入れた、継続的な実装ベースとして育てています。
 
-現在のリポジトリは pre-alpha 段階です。パーサ、コーデック、キュー、RTP パケット生成などの土台は育ってきていますが、Discord への実接続や音声再生はまだ開発途中です。
+最終的には、Bot を作る側が Discord の生プロトコルを毎回意識しなくて済むように、COBOL から呼び出せるフレームワークとして成立させることが目標です。
 
-## プロジェクトの狙い
+## この README で分かること
 
-このプロジェクトは次の 3 つを軸にしています。
+- このリポジトリが何を目指しているか
+- 2026年6月時点でどこまで実装済みか
+- いま触るなら何が使えて、何はまだ途中か
+- ビルド方法、テスト方法、入口になるファイル
 
-- 人間が書く実装を COBOL に寄せる
-- Discord の複雑なプロトコル処理をフレームワーク側に隠す
-- 低レイヤから段階的に積み上げて、最終的に Voice Music Bot まで到達する
+## これは何のプロジェクトか
 
-全体設計の草案は [discord_cob_design.md](discord_cob_design.md) にあります。
+このプロジェクトは、次の 3 つの目的をまとめて扱っています。
 
-## 現在の実装状況
+1. COBOL で現代的なネットワークプロトコルをどこまで実装できるかを確かめること
+2. Discord Bot 開発で必要になる低レイヤを、段階的にライブラリ化していくこと
+3. 最終的に Voice 対応の Music Bot を COBOL で動かせるところまで持っていくこと
 
-実装済み:
+そのため、現時点では「完成した Bot フレームワーク」よりも、「動く土台が着実に増えている実装リポジトリ」として捉えるのが正確です。
 
-- Core の client state、result helper、event registration、dispatch
-- Discord 風 JSON payload 向けの JSON validation と JSON path 抽出
-- HTTP response parser、header lookup、基本的な chunked transfer decoding
-- WebSocket frame encode/decode と masked frame decode
-- RTP header / packet 生成
-- Opus silence frame 生成
-- Music queue と track helper
+## 現在地
 
-未実装または開発途中:
+このリポジトリは pre-alpha です。
 
-- TCP socket transport
-- TLS client transport
-- WebSocket handshake transport
-- Discord Gateway session handling
+ただし、単なる構想段階ではありません。以下のレイヤはすでにコードとテストが揃っており、継続的に積み上がっています。
+
+- Core client state と result helper
+- event registration / dispatch
+- Discord 向け JSON path 抽出と validation
+- HTTP request / response の組み立てと解析
+- in-memory の TCP/TLS fixture transport
+- `nc` / `openssl s_client` を使った OS-backed TCP/TLS transport
+- WebSocket handshake helper
+- WebSocket frame encode / decode
+- in-memory WebSocket session
+- opt-in の live TLS-backed WebSocket session
+- RTP packet 生成
+- music queue の基礎
+
+一方で、次の領域はまだ開発途中です。
+
+- Discord Gateway の本格的な session loop
+- Voice Gateway の実運用フロー
 - UDP voice transport
-- Voice encryption
+- voice encryption
 - Ogg Opus parsing
-- 本格的な audio playback と music bot workflow
+- 音声再生まで含めた end-to-end の music bot workflow
 
-## このリポジトリの位置づけ
+## いまこのリポジトリでできること
 
-現時点の `discord.cob` は、次のように捉えるのがいちばん近いです。
+現時点で実用的に触りやすいのは、次のような用途です。
 
-- Discord protocol を COBOL で扱うための整理された研究用コードベース
-- 将来の framework API に向けた土台
-- COBOL で現代的な network / realtime protocol を扱うための実験場
+- COBOL で Discord 向けの HTTP / WebSocket / RTP レイヤの実装例を読む
+- protocol primitive のテストを足しながら低レイヤを拡張する
+- Gateway / Voice 実装の前段として request builder や state 管理を進める
+- GnuCOBOL でどこまで realtime / network 処理を寄せられるか検証する
 
-まだ production-ready な Discord bot library ではありません。
+逆に、すぐに production bot を立ち上げたい用途にはまだ向いていません。
 
-## ディレクトリ構成
+## 設計の考え方
+
+このプロジェクトでは、いきなり Bot の表面 API だけを整えるのではなく、次の順番を重視しています。
+
+1. parser / codec / packet builder のような protocol primitive を固める
+2. transport と session の実装を増やす
+3. Gateway / Voice の状態遷移を積み上げる
+4. その上で、Bot 作者向け API を薄く整理する
+
+この進め方にしている理由は、Discord まわりは最終的に WebSocket、Voice、UDP、RTP、暗号化まで連続してつながるためです。
+上の層だけ先に作ると、あとで下の層の都合に引きずられやすくなります。なので、今は意図的に低レイヤを厚くしています。
+
+## リポジトリ構成
 
 ```text
 src/
   core/          client state, dispatcher, result helper
   json/          JSON validation と path reader
-  net/           HTTP / WebSocket codec と今後の transport layer
+  net/           HTTP / transport / WebSocket
   gateway/       Gateway payload builder と event mapping
-  voice/         voice session state と今後の UDP / gateway logic
+  voice/         voice session state と Voice まわりの土台
   rtp/           RTP packet と sequence / timestamp builder
-  crypto/        今後の voice encryption layer
+  crypto/        voice encryption 用の将来レイヤ
   opus/          Opus helper と今後の reader / encoder
   audio/         playback 側の抽象
   music/         queue と command helper
-  copybooks/     共通の COBOL data definition
+  copybooks/     共通 data definition
 
-examples/        phase ごとの example program
+examples/        段階別の example program
 tests/           実行可能な COBOL test
 docs/            API note と roadmap
 ```
 
-## API の方向性
+## 想定している API の形
 
-公開 API は、client 初期化と event dispatch を中心にした呼び出し型の形を想定しています。
+最終的な利用側 API は、COBOL から素直に呼べる形を目指しています。
 
 ```cobol
 CALL "DC-CLIENT-INIT"
@@ -92,13 +117,14 @@ CALL "DC-LOGIN"
           DC-RESULT.
 ```
 
-この上位 API の骨格はすでにありますが、実際に Discord へ接続する transport や session flow はまだ実装中です。
+この上位 API はまだ完成ではありませんが、下支えになる transport と protocol primitive はかなり揃ってきています。
 
 ## クイックスタート
 
 ### 必要環境
 
-- GnuCOBOL と `cobc`
+- GnuCOBOL
+- `cobc`
 
 macOS で Homebrew を使う場合:
 
@@ -118,18 +144,23 @@ make build
 make test
 ```
 
-現時点のテスト:
+主なテスト:
 
 - `core-test`
 - `json-test`
 - `http-test`
+- `url-test`
+- `transport-test`
 - `websocket-test`
+- `ws-handshake-test`
+- `gateway-test`
+- `voice-test`
 - `rtp-test`
 - `music-queue-test`
 
 ### サンプル実行
 
-HTTP parser のサンプルは次で実行できます。
+HTTP まわりのサンプルは次のように実行できます。
 
 ```sh
 mkdir -p build/examples
@@ -140,60 +171,60 @@ cobc -free -Wall -I src/copybooks -x \
 ./build/examples/example-http
 ```
 
-Bot の entrypoint イメージは [examples/02-gateway-ready/main.cob](examples/02-gateway-ready/main.cob) にあります。
+Gateway 側の入口イメージは [examples/02-gateway-ready/main.cob](examples/02-gateway-ready/main.cob) を見ると掴みやすいです。
 
 ## 設定方針
 
-Discord token はソースコードへ直書きしない方針です。
+Discord token はソースコードに埋め込まない方針です。
+
 リポジトリには次を含めています。
 
 - `.env.example`
 - `.env` を除外する `.gitignore`
 
-最終的には環境変数ベースの設定を前提に整えていく予定です。
+今後も、認証情報は環境変数や設定ファイル経由で扱う前提で整えていきます。
+
+## どこから読むと追いやすいか
+
+初見で追うなら、次の順番がおすすめです。
+
+1. [docs/roadmap.md](docs/roadmap.md) で現在地を確認する
+2. [docs/api.md](docs/api.md) で exposed API の断面を見る
+3. `tests/` を読んで、各レイヤの期待動作を掴む
+4. `src/net/` と `src/gateway/` を中心に実装を追う
+
+「まず動くものを見たい」なら `tests/websocket-test.cob` と `tests/transport-test.cob` が入りやすいです。
 
 ## ロードマップ
 
-近い優先項目:
+近い優先項目は次の通りです。
 
-1. WebSocket handshake helper と `Sec-WebSocket-Accept` 検証
-2. 最小限の Discord Gateway `HELLO` / `READY` handling
-3. Slash command `/ping`
-4. Voice join state handling
-5. UDP discovery の土台
-6. encrypted voice packet の土台
+1. Gateway の live session loop を太くする
+2. Voice Gateway transport を実装する
+3. UDP voice transport を安定化する
+4. 音声暗号化を入れる
+5. Ogg Opus の読み出しを進める
+6. `/play file:<path>` まで到達する
 
-長期目標:
+長期目標は、Voice channel に参加して音声再生できる COBOL 製 Discord Music Bot です。
 
-- Voice channel に参加して音声再生できる COBOL 製 Discord Music Bot
+## コントリビュート
 
-## 補足
+このプロジェクトはまだ探索段階ですが、次の種類の貢献はとても助かります。
 
-このプロジェクトはかなり変わった挑戦です。狙っているのは、たとえば次のような問いです。
+- GnuCOBOL の挙動差や portability の検証
+- parser / codec の edge case テスト
+- Discord protocol compatibility の確認
+- Gateway / Voice の状態遷移整理
+- example と documentation の改善
 
-- COBOL で現代的な network protocol をどこまで扱えるか
-- 手続き型の COBOL で Discord framework らしい API をどう設計するか
-- Voice、RTP、暗号化の層を言語境界を増やさず扱えるか
+小さめの変更でも、テストが一緒にあるとレビューしやすくなります。
 
-そのため、実接続より前に parser や codec の層を先に厚くしている部分があります。
-
-## ドキュメント
+## 関連ドキュメント
 
 - 設計草案: [discord_cob_design.md](discord_cob_design.md)
 - API note: [docs/api.md](docs/api.md)
 - Roadmap: [docs/roadmap.md](docs/roadmap.md)
-
-## コントリビュート
-
-まだ探索段階ですが、次の領域の contribution はとても相性がいいです。
-
-- COBOL portability と GnuCOBOL の挙動検証
-- parser / codec の正確性
-- Discord protocol compatibility
-- protocol edge case 向けの test 追加
-- example や documentation の改善
-
-小さくてテスト付きの pull request から始めるのが自然です。
 
 ## ライセンス
 

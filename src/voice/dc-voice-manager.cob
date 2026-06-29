@@ -1,7 +1,113 @@
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-VOICE-STATE-UPDATE-BUILD.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       01 DC-VOICE-GUILD-ID-IN PIC X(32).
+       01 DC-VOICE-CHANNEL-ID-IN PIC X(32).
+       01 DC-VOICE-PAYLOAD-OUT PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-VOICE-GUILD-ID-IN
+           DC-VOICE-CHANNEL-ID-IN
+           DC-VOICE-PAYLOAD-OUT
+           DC-RESULT.
+       MAIN.
+           MOVE SPACES TO DC-VOICE-PAYLOAD-OUT
+           IF FUNCTION TRIM(DC-VOICE-GUILD-ID-IN) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_VOICE_GATEWAY" TO DC-ERROR-CODE
+               MOVE "Voice guild id is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           IF FUNCTION TRIM(DC-VOICE-CHANNEL-ID-IN) = SPACES
+               STRING
+                   "{" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "op" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":4," DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "d" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":{" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "guild_id" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   FUNCTION TRIM(DC-VOICE-GUILD-ID-IN) DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "," DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "channel_id" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":null," DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "self_mute" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":false," DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "self_deaf" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":false}}" DELIMITED BY SIZE
+                   INTO DC-VOICE-PAYLOAD-OUT
+               END-STRING
+           ELSE
+               STRING
+                   "{" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "op" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":4," DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "d" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":{" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "guild_id" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   FUNCTION TRIM(DC-VOICE-GUILD-ID-IN) DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "," DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "channel_id" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   FUNCTION TRIM(DC-VOICE-CHANNEL-ID-IN)
+                       DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "," DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "self_mute" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":false," DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   "self_deaf" DELIMITED BY SIZE
+                   QUOTE DELIMITED BY SIZE
+                   ":false}}" DELIMITED BY SIZE
+                   INTO DC-VOICE-PAYLOAD-OUT
+               END-STRING
+           END-IF
+
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-VOICE-STATE-UPDATE-BUILD.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-JOIN.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-ACTION PIC X(32) VALUE "VOICE_STATE_UPDATE".
+       01 WS-PAYLOAD PIC X(8192).
+
        LINKAGE SECTION.
        COPY "discord-client.cpy".
        01 DC-VOICE-GUILD-ID-IN PIC X(32).
@@ -14,9 +120,28 @@
            DC-VOICE-CHANNEL-ID-IN
            DC-RESULT.
        MAIN.
-           MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-           MOVE "DC_ERR_VOICE_GATEWAY" TO DC-ERROR-CODE
-           MOVE "Voice join is not implemented yet." TO DC-ERROR-MESSAGE
+           IF DC-CLIENT-STATE NOT = 2
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_GATEWAY_NOT_READY" TO DC-ERROR-CODE
+               MOVE "Gateway client must be ready before voice join."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           CALL "DC-VOICE-STATE-UPDATE-BUILD"
+               USING DC-VOICE-GUILD-ID-IN
+                     DC-VOICE-CHANNEL-ID-IN
+                     WS-PAYLOAD
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-GATEWAY-QUEUE-PAYLOAD"
+               USING DC-CLIENT
+                     WS-ACTION
+                     WS-PAYLOAD
+                     DC-RESULT
            GOBACK.
        END PROGRAM DC-VOICE-JOIN.
 
@@ -24,6 +149,11 @@
        PROGRAM-ID. DC-VOICE-LEAVE.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-ACTION PIC X(32) VALUE "VOICE_STATE_UPDATE".
+       01 WS-EMPTY-CHANNEL PIC X(32).
+       01 WS-PAYLOAD PIC X(8192).
+
        LINKAGE SECTION.
        COPY "discord-client.cpy".
        01 DC-VOICE-GUILD-ID-IN PIC X(32).
@@ -34,9 +164,28 @@
            DC-VOICE-GUILD-ID-IN
            DC-RESULT.
        MAIN.
-           MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-           MOVE "DC_ERR_MUSIC_NOT_CONNECTED" TO DC-ERROR-CODE
-           MOVE "Voice session is not connected." TO DC-ERROR-MESSAGE
+           IF DC-CLIENT-STATE NOT = 2
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_GATEWAY_NOT_READY" TO DC-ERROR-CODE
+               MOVE "Gateway client must be ready before voice leave."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           CALL "DC-VOICE-STATE-UPDATE-BUILD"
+               USING DC-VOICE-GUILD-ID-IN
+                     WS-EMPTY-CHANNEL
+                     WS-PAYLOAD
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-GATEWAY-QUEUE-PAYLOAD"
+               USING DC-CLIENT
+                     WS-ACTION
+                     WS-PAYLOAD
+                     DC-RESULT
            GOBACK.
        END PROGRAM DC-VOICE-LEAVE.
 
@@ -60,6 +209,11 @@
            MOVE DC-VOICE-GUILD-ID-IN TO DC-VS-GUILD-ID
            MOVE DC-VOICE-CHANNEL-ID-IN TO DC-VS-CHANNEL-ID
            MOVE 1 TO DC-VS-STATE
+           MOVE 0 TO DC-VS-HEARTBEAT-NONCE
+           MOVE 0 TO DC-VS-IDENTIFY-NEEDED
+           MOVE 0 TO DC-VS-RESUME-REQUESTED
+           MOVE 0 TO DC-VS-HEARTBEAT-DUE
+           MOVE 0 TO DC-VS-AWAITING-ACK
            CALL "DC-RESULT-OK" USING DC-RESULT
            GOBACK.
        END PROGRAM DC-VOICE-SESSION-INIT.

@@ -5,7 +5,7 @@
 `discord.cob` is an experimental open source framework for building Discord bots in COBOL.
 Its long-term target is deliberately ambitious: a Discord Gateway, Voice, and music bot stack implemented in COBOL, while presenting a simple callable API to bot authors.
 
-This repository is currently in a pre-alpha stage. The parser, codec, queue, and packet-building layers are taking shape; live Discord connectivity and voice playback are still in progress.
+This repository is currently in a pre-alpha stage. The parser, codec, queue, packet-building, and initial playback layers are already working; live Gateway and Voice session connectivity, negotiated voice encryption, interaction parsing/reply flow, and queue-backed command routing are in place, and the remaining work is now mostly around command registration, richer bot ergonomics, and deeper end-to-end playback.
 
 ## Project Vision
 
@@ -27,17 +27,23 @@ Implemented today:
 - OS-backed TCP/TLS transport through spawned `nc` / `openssl s_client` processes
 - HTTP response parsing, header lookup, basic chunked transfer decoding, and mock-backed high-level requests
 - WebSocket frame encode/decode, masked client/server frame handling, in-memory session flow, and opt-in live TLS-backed session flow
+- Live Discord Gateway connect/login plus a minimal recv/apply/send event-loop tick with heartbeat scheduling
+- Live Voice Gateway connect plus a minimal recv/apply/queue/send voice tick with heartbeat scheduling
+- Voice UDP discovery parsing, automatic apply-to-select-protocol queueing, and session description secret-key capture
+- Fixture-backed and OS-backed UDP transport through shared handle APIs
 - RTP header and packet building
+- `aead_xchacha20_poly1305_rtpsize` voice packet encryption
+- Initial Ogg Opus packet extraction plus explicit reader handle close
 - Opus silence frame generation
-- Music queue primitives and track helpers
+- Music queue primitives, track helpers, and a queue-backed playback tick for raw/local voice tests
+- Slash-command routing for `/join`, `/leave`, `/play`, `/skip`, `/stop`, and `/queue`
+- Interaction JSON parsing, immediate reply payload building, callback request sending, and registerable dispatcher-backed interaction handlers
 
 In progress or not implemented yet:
 
-- Discord Gateway session handling
-- UDP voice transport
-- Voice encryption
-- Ogg Opus parsing
-- Full audio playback and music bot workflows
+- Gateway reconnect lifecycle and stale-heartbeat handling
+- Slash-command registration through HTTP
+- Full encrypted voice playback and music bot workflows
 
 ## What This Repository Is
 
@@ -59,7 +65,7 @@ src/
   gateway/       Gateway payload builders and event mapping
   voice/         voice session state and future UDP/gateway logic
   rtp/           RTP packet and sequence/timestamp builders
-  crypto/        future voice encryption layer
+  crypto/        voice encryption layer
   opus/          Opus helpers and future readers/encoders
   audio/         playback-side abstractions
   music/         queue and command helpers
@@ -91,18 +97,19 @@ CALL "DC-LOGIN"
           DC-RESULT.
 ```
 
-That higher-level API exists today as a scaffold. Core transport and protocol primitives are already functional, while Discord session orchestration and voice flows are still being implemented.
+That higher-level API exists today as a scaffold. Core transport and protocol primitives are already functional, while Discord session orchestration and voice flows are still being implemented. Registered handler programs are invoked as `CALL handler USING DC-CLIENT DC-EVENT DC-RESULT`.
 
 ## Quick Start
 
 ### Requirements
 
 - GnuCOBOL with `cobc`
+- `libsodium`
 
 On macOS with Homebrew:
 
 ```sh
-brew install gnucobol
+brew install gnucobol libsodium pkg-config
 ```
 
 ### Build
@@ -122,10 +129,16 @@ Current test executables:
 - `core-test`
 - `json-test`
 - `http-test`
+- `url-test`
 - `transport-test`
 - `websocket-test`
+- `ws-handshake-test`
+- `gateway-test`
+- `voice-test`
 - `rtp-test`
+- `opus-test`
 - `music-queue-test`
+- `music-playback-test`
 
 ### Run an Example
 
@@ -156,12 +169,11 @@ The long-term direction is environment-driven configuration rather than embeddin
 
 Near-term priorities:
 
-1. WebSocket handshake helpers and `Sec-WebSocket-Accept` validation
-2. Minimal Discord Gateway `HELLO` and `READY` handling
-3. Slash command `/ping`
-4. Voice join state handling
-5. UDP discovery groundwork
-6. Encrypted voice packet groundwork
+1. Gateway reconnect and stale-heartbeat handling
+2. Encrypted voice packet groundwork
+3. Slash command and playback workflow expansion
+4. End-to-end encrypted playback workflow
+5. Higher-level bot examples around music playback
 
 Long-term target:
 
@@ -175,7 +187,7 @@ The broader project is intentionally unusual. It is trying to answer questions l
 - What would a framework-style Discord library look like in a procedural COBOL environment?
 - Can Voice, RTP, and encryption layers be made tractable without abandoning the language boundary?
 
-That is why the repository includes parser and codec layers early, even before live Gateway support is complete.
+That is why the repository includes parser and codec layers early, even before the Gateway and Voice runtimes are fully rounded out.
 
 ## Documentation
 

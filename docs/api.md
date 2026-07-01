@@ -33,7 +33,7 @@ CALL "DC-DISPATCH"
 Handlers are normal COBOL programs.
 
 ```cobol
-PROCEDURE DIVISION USING DC-EVENT DC-RESULT.
+PROCEDURE DIVISION USING DC-CLIENT DC-EVENT DC-RESULT.
 ```
 
 ## JSON
@@ -76,8 +76,32 @@ CALL "DC-RTP-ADVANCE"
           DC-RESULT.
 ```
 
-The current packet builder is unencrypted and intended for internal testing.
-Voice encryption will wrap this in a later phase.
+The current packet builder is still the unencrypted core.
+`DC-VOICE-SEND-FRAME` can send that raw RTP payload over UDP for local tests when no encryption mode has been negotiated yet.
+Once Voice session description negotiates an encryption mode, send attempts currently fail fast until the AEAD layer is implemented.
+
+## UDP
+
+The UDP transport now mirrors the TCP/TLS split between fixtures and an opt-in OS-backed runtime path.
+
+```cobol
+CALL "DC-UDP-OPEN"
+    USING DC-UDP-SESSION
+          DC-RESULT.
+
+CALL "DC-UDP-SEND"
+    USING DC-UDP-SESSION
+          DC-UDP-PACKET
+          DC-RESULT.
+
+CALL "DC-UDP-RECV"
+    USING DC-UDP-SESSION
+          DC-UDP-PACKET
+          DC-RESULT.
+```
+
+Fixture-backed sessions are used in tests.
+When no matching fixture exists, the current live path uses spawned `nc -u` processes behind the same handle API.
 
 ## HTTP
 
@@ -216,7 +240,7 @@ Not yet covered:
 
 ## Gateway
 
-Gateway payload helpers are available before the full Discord Gateway session loop lands.
+Gateway now has a minimal runtime path on top of the live WebSocket layer.
 
 ```cobol
 CALL "DC-GATEWAY-BUILD-URL-REQUEST"
@@ -232,6 +256,18 @@ CALL "DC-GATEWAY-APPLY-URL-RESPONSE"
 CALL "DC-GATEWAY-BUILD-WS-REQUEST"
     USING DC-CLIENT
           DC-WS-REQUEST
+          DC-RESULT.
+
+CALL "DC-GATEWAY-CONNECT"
+    USING DC-CLIENT
+          DC-RESULT.
+
+CALL "DC-LOGIN"
+    USING DC-CLIENT
+          DC-RESULT.
+
+CALL "DC-EVENT-LOOP-TICK"
+    USING DC-CLIENT
           DC-RESULT.
 
 CALL "DC-HEARTBEAT-BUILD"
@@ -273,6 +309,9 @@ Current coverage:
 - `/api/vX/gateway/bot` request preparation
 - gateway URL response application
 - gateway WS request preparation
+- live Gateway connect/login over the shared HTTP/TLS/WebSocket stack
+- minimal event-loop tick that can recv, apply, and send Gateway payloads
+- heartbeat scheduling on top of repeated tick calls
 - outbound payload queueing
 - next-payload planning for Identify, Resume, Heartbeat, and queued sends
 - `HELLO` heartbeat interval extraction
@@ -281,7 +320,7 @@ Current coverage:
 
 ## Voice
 
-Voice session helpers are available for the pre-transport parts of the flow.
+Voice now has a minimal runtime path on top of the shared WebSocket and TLS stack.
 
 ```cobol
 CALL "DC-VOICE-SESSION-INIT"
@@ -338,6 +377,22 @@ CALL "DC-VOICE-BUILD-WS-REQUEST"
           DC-WS-REQUEST
           DC-RESULT.
 
+CALL "DC-VOICE-GATEWAY-CONNECT"
+    USING DC-CLIENT
+          DC-VOICE-SESSION
+          DC-RESULT.
+
+CALL "DC-VOICE-QUEUE-PAYLOAD"
+    USING DC-VOICE-SESSION
+          ACTION-NAME
+          JSON-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-VOICE-EVENT-LOOP-TICK"
+    USING DC-CLIENT
+          DC-VOICE-SESSION
+          DC-RESULT.
+
 CALL "DC-VOICE-HANDLE-PAYLOAD"
     USING DC-VOICE-SESSION
           VOICE-GATEWAY-JSON
@@ -350,6 +405,11 @@ CALL "DC-VOICE-UDP-DISCOVERY-BUILD"
 CALL "DC-VOICE-UDP-DISCOVERY-PARSE"
     USING DC-UDP-DISCOVERY
           DC-RESULT.
+
+CALL "DC-VOICE-UDP-DISCOVERY-APPLY"
+    USING DC-VOICE-SESSION
+          DC-UDP-DISCOVERY
+          DC-RESULT.
 ```
 
 Current coverage:
@@ -359,8 +419,77 @@ Current coverage:
 - queued voice join/leave requests through the gateway planner
 - voice identify, select-protocol, resume, and speaking payload builders
 - voice WS request preparation
+- live Voice Gateway connect over the shared WebSocket/TLS stack
+- minimal voice event-loop tick that can recv, apply, queue, and send voice payloads
+- voice heartbeat scheduling on top of repeated tick calls
 - voice `HELLO`, `READY`, and session-description field application
+- applying parsed UDP discovery results into queued select-protocol payloads
+- queued select-protocol and speaking payload send flow
 - UDP discovery request build and response parse
+
+## Opus
+
+```cobol
+CALL "DC-OPUS-OPEN"
+    USING DC-AUDIO-SOURCE
+          DC-OPUS-HANDLE
+          DC-RESULT.
+
+CALL "DC-OPUS-READ-FRAME"
+    USING DC-OPUS-HANDLE
+          DC-OPUS-FRAME
+          DC-RESULT.
+
+CALL "DC-OPUS-CLOSE"
+    USING DC-OPUS-HANDLE
+          DC-RESULT.
+```
+
+Current coverage:
+
+- initial in-memory Ogg Opus page parsing
+- `OpusHead` and `OpusTags` skip handling
+- multi-packet page extraction into Opus frames
+- explicit reader handle close and reuse
+
+Current limitations:
+
+- whole-file buffering with a fixed 262144-byte reader buffer
+- frame duration currently assumed as 20ms
+- end-to-end live playback still needs fuller voice-session orchestration
+
+## Interactions
+
+```cobol
+CALL "DC-INTERACTION-FROM-JSON"
+    USING INTERACTION-JSON
+          DC-INTERACTION
+          DC-RESULT.
+
+CALL "DC-INTERACTION-HANDLE"
+    USING DC-CLIENT
+          INTERACTION-JSON
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-INTERACTION-CALLBACK-BUILD"
+    USING DC-INTERACTION
+          REPLY-PAYLOAD
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-INTERACTION-REGISTER"
+    USING DC-CLIENT
+          DC-RESULT.
+```
+
+Current coverage:
+
+- raw and wrapped `INTERACTION_CREATE` JSON parsing
+- slash-command routing into `/join`, `/leave`, `/play`, `/skip`, `/stop`, and `/queue`
+- immediate type-4 reply payload construction
+- callback HTTP request building and POST execution
+- dispatcher-friendly handler registration through `DC-INTERACTION-REGISTER`
 
 ## Music Queue
 
@@ -380,3 +509,48 @@ CALL "DC-MUSIC-QUEUE-POP"
           DC-MUSIC-TRACK
           DC-RESULT.
 ```
+
+Additional playback-facing entry points:
+
+```cobol
+CALL "DC-MUSIC-PLAY"
+    USING DC-CLIENT
+          GUILD-ID
+          CHANNEL-ID
+          DC-AUDIO-SOURCE
+          DC-RESULT.
+
+CALL "DC-MUSIC-SKIP"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+
+CALL "DC-MUSIC-STOP"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+
+CALL "DC-MUSIC-QUEUE-LIST"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-MUSIC-QUEUE
+          DC-RESULT.
+
+CALL "DC-MUSIC-VOICE-TICK"
+    USING DC-CLIENT
+          DC-VOICE-SESSION
+          DC-RESULT.
+```
+
+Current coverage:
+
+- queue-backed `/play file:<path>` command routing
+- per-guild music runtime state
+- Voice tick integration that can open queued Ogg Opus sources and send raw or encrypted RTP frames in fixture/local tests
+- queue inspection, skip, and stop primitives
+
+Current limitations:
+
+- live Discord playback still stops at negotiated voice encryption
+- slash-command registration through HTTP is still partial
+- deferred replies, followups, and component/modal interaction flows are not implemented yet

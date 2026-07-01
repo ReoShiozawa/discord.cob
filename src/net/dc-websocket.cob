@@ -692,7 +692,10 @@
                GOBACK
            END-IF
 
-           IF DC-WS-SESSION-LIVE-FLAG = 1
+           IF DC-WS-INBOUND-BUFFER-LENGTH > 0
+               CONTINUE
+           ELSE
+               IF DC-WS-SESSION-LIVE-FLAG = 1
                CALL "DC-TLS-RECV"
                    USING DC-WS-HANDLE
                          WS-TRANSPORT-BUFFER
@@ -719,15 +722,15 @@
                    MOVE WS-TRANSPORT-BUFFER-DATA(1:WS-COPY-LEN)
                        TO DC-WS-INBOUND-BUFFER(1:WS-COPY-LEN)
                END-IF
-           ELSE
-               IF DC-WS-INBOUND-BUFFER-LENGTH = 0
-                  AND DC-WS-LOOPBACK-FLAG = 1
-                  AND DC-WS-OUTBOUND-BUFFER-LENGTH > 0
-                   MOVE DC-WS-OUTBOUND-BUFFER-LENGTH
-                       TO DC-WS-INBOUND-BUFFER-LENGTH
-                   MOVE DC-WS-OUTBOUND-BUFFER TO DC-WS-INBOUND-BUFFER
-                   MOVE 0 TO DC-WS-OUTBOUND-BUFFER-LENGTH
-                   MOVE SPACES TO DC-WS-OUTBOUND-BUFFER
+               ELSE
+                   IF DC-WS-LOOPBACK-FLAG = 1
+                      AND DC-WS-OUTBOUND-BUFFER-LENGTH > 0
+                       MOVE DC-WS-OUTBOUND-BUFFER-LENGTH
+                           TO DC-WS-INBOUND-BUFFER-LENGTH
+                       MOVE DC-WS-OUTBOUND-BUFFER TO DC-WS-INBOUND-BUFFER
+                       MOVE 0 TO DC-WS-OUTBOUND-BUFFER-LENGTH
+                       MOVE SPACES TO DC-WS-OUTBOUND-BUFFER
+                   END-IF
                END-IF
            END-IF
 

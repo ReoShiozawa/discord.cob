@@ -40,17 +40,29 @@
 - WebSocket frame encode / decode
 - in-memory WebSocket session
 - opt-in の live TLS-backed WebSocket session
+- fixture-backed / OS-backed の UDP transport
 - RTP packet 生成
 - music queue の基礎
 
-一方で、次の領域はまだ開発途中です。
+また、いまの時点で「もう動くところ」と「これから厚くするところ」ははっきり分かれています。
 
-- Discord Gateway の本格的な session loop
-- Voice Gateway の実運用フロー
-- UDP voice transport
-- voice encryption
-- Ogg Opus parsing
-- 音声再生まで含めた end-to-end の music bot workflow
+すでに通っている実装:
+
+- live Discord Gateway connect / login と最小 event loop
+- tick ベースで進む Gateway / Voice heartbeat scheduler
+- live Voice Gateway connect と最小の recv/apply/queue/send loop
+- Voice の select protocol / speaking payload builder、UDP discovery の自動適用、session description の secret_key 取り込み、送信キュー
+- `aead_xchacha20_poly1305_rtpsize` による voice packet 暗号化
+- Ogg Opus からの初期 packet 抽出と reader handle の close
+- queue に積んだ `.ogg/.opus` ソースを Voice tick にぶら下げて raw/local 送信する再生土台
+- `/join` `/leave` `/play` `/skip` `/stop` `/queue` を music / voice API に接続する command routing
+- interaction JSON の取り込み、即時 reply payload の生成、callback POST、dispatcher 経由で登録できる interaction handler
+
+引き続き開発中の領域:
+
+- Gateway reconnect と heartbeat 異常時の扱い
+- slash command の HTTP registration
+- 暗号化を含む end-to-end の music bot workflow
 
 ## いまこのリポジトリでできること
 
@@ -85,7 +97,7 @@ src/
   gateway/       Gateway payload builder と event mapping
   voice/         voice session state と Voice まわりの土台
   rtp/           RTP packet と sequence / timestamp builder
-  crypto/        voice encryption 用の将来レイヤ
+  crypto/        voice encryption レイヤ
   opus/          Opus helper と今後の reader / encoder
   audio/         playback 側の抽象
   music/         queue と command helper
@@ -117,7 +129,7 @@ CALL "DC-LOGIN"
           DC-RESULT.
 ```
 
-この上位 API はまだ完成ではありませんが、下支えになる transport と protocol primitive はかなり揃ってきています。
+この上位 API はまだ完成ではありませんが、下支えになる transport と protocol primitive はかなり揃ってきています。登録した handler program は `CALL handler USING DC-CLIENT DC-EVENT DC-RESULT` の形で呼ばれます。
 
 ## クイックスタート
 
@@ -129,7 +141,7 @@ CALL "DC-LOGIN"
 macOS で Homebrew を使う場合:
 
 ```sh
-brew install gnucobol
+brew install gnucobol libsodium pkg-config
 ```
 
 ### ビルド
@@ -156,7 +168,9 @@ make test
 - `gateway-test`
 - `voice-test`
 - `rtp-test`
+- `opus-test`
 - `music-queue-test`
+- `music-playback-test`
 
 ### サンプル実行
 
@@ -199,12 +213,11 @@ Discord token はソースコードに埋め込まない方針です。
 
 近い優先項目は次の通りです。
 
-1. Gateway の live session loop を太くする
-2. Voice Gateway transport を実装する
-3. UDP voice transport を安定化する
-4. 音声暗号化を入れる
-5. Ogg Opus の読み出しを進める
-6. `/play file:<path>` まで到達する
+1. Gateway reconnect / heartbeat 異常時のライフサイクルを厚くする
+2. 音声暗号化を入れる
+3. Slash command と playback workflow をつなぐ
+4. 暗号化込みの end-to-end playback を成立させる
+5. music bot の上位 example を増やす
 
 長期目標は、Voice channel に参加して音声再生できる COBOL 製 Discord Music Bot です。
 

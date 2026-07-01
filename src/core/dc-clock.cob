@@ -1,0 +1,127 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-CLOCK-NOW-CS.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-CURRENT-DATE PIC X(21).
+       01 WS-DAY-COUNT PIC 9(9) COMP-5.
+       01 WS-HOURS PIC 9(2) COMP-5.
+       01 WS-MINUTES PIC 9(2) COMP-5.
+       01 WS-SECONDS PIC 9(2) COMP-5.
+       01 WS-CENTISECONDS PIC 9(2) COMP-5.
+
+       LINKAGE SECTION.
+       01 DC-CLOCK-CS-OUT PIC 9(18) COMP-5.
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLOCK-CS-OUT
+           DC-RESULT.
+       MAIN.
+           MOVE FUNCTION CURRENT-DATE TO WS-CURRENT-DATE
+           COMPUTE WS-DAY-COUNT =
+               FUNCTION INTEGER-OF-DATE(
+                   FUNCTION NUMVAL(WS-CURRENT-DATE(1:8))) - 1
+           COMPUTE WS-HOURS = FUNCTION NUMVAL(WS-CURRENT-DATE(9:2))
+           COMPUTE WS-MINUTES = FUNCTION NUMVAL(WS-CURRENT-DATE(11:2))
+           COMPUTE WS-SECONDS = FUNCTION NUMVAL(WS-CURRENT-DATE(13:2))
+           COMPUTE WS-CENTISECONDS =
+               FUNCTION NUMVAL(WS-CURRENT-DATE(15:2))
+           COMPUTE DC-CLOCK-CS-OUT =
+               (WS-DAY-COUNT * 8640000)
+               + (WS-HOURS * 360000)
+               + (WS-MINUTES * 6000)
+               + (WS-SECONDS * 100)
+               + WS-CENTISECONDS
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-CLOCK-NOW-CS.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-HEARTBEAT-POLL.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-DELAY-CS PIC 9(10) COMP-5.
+
+       LINKAGE SECTION.
+       01 DC-HB-INTERVAL-IN PIC 9(10) COMP-5.
+       01 DC-HB-AWAITING-ACK PIC 9.
+       01 DC-HB-NEXT-AT PIC 9(18) COMP-5.
+       01 DC-HB-DUE PIC 9.
+       01 DC-HB-NOW-CS PIC 9(18) COMP-5.
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-HB-INTERVAL-IN
+           DC-HB-AWAITING-ACK
+           DC-HB-NEXT-AT
+           DC-HB-DUE
+           DC-HB-NOW-CS
+           DC-RESULT.
+       MAIN.
+           IF DC-HB-INTERVAL-IN <= 0
+               MOVE 0 TO DC-HB-NEXT-AT
+               MOVE 0 TO DC-HB-DUE
+               CALL "DC-RESULT-OK" USING DC-RESULT
+               GOBACK
+           END-IF
+
+           COMPUTE WS-DELAY-CS =
+               FUNCTION INTEGER((DC-HB-INTERVAL-IN + 9) / 10)
+           IF WS-DELAY-CS <= 0
+               MOVE 1 TO WS-DELAY-CS
+           END-IF
+
+           IF DC-HB-NEXT-AT <= 0
+               COMPUTE DC-HB-NEXT-AT = DC-HB-NOW-CS + WS-DELAY-CS
+           END-IF
+
+           IF DC-HB-AWAITING-ACK NOT = 1
+              AND DC-HB-NOW-CS >= DC-HB-NEXT-AT
+               MOVE 1 TO DC-HB-DUE
+           END-IF
+
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-HEARTBEAT-POLL.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-HEARTBEAT-DEFER.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-DELAY-CS PIC 9(10) COMP-5.
+
+       LINKAGE SECTION.
+       01 DC-HB-INTERVAL-IN PIC 9(10) COMP-5.
+       01 DC-HB-NEXT-AT PIC 9(18) COMP-5.
+       01 DC-HB-DUE PIC 9.
+       01 DC-HB-NOW-CS PIC 9(18) COMP-5.
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-HB-INTERVAL-IN
+           DC-HB-NEXT-AT
+           DC-HB-DUE
+           DC-HB-NOW-CS
+           DC-RESULT.
+       MAIN.
+           IF DC-HB-INTERVAL-IN <= 0
+               MOVE 0 TO DC-HB-NEXT-AT
+               MOVE 0 TO DC-HB-DUE
+               CALL "DC-RESULT-OK" USING DC-RESULT
+               GOBACK
+           END-IF
+
+           COMPUTE WS-DELAY-CS =
+               FUNCTION INTEGER((DC-HB-INTERVAL-IN + 9) / 10)
+           IF WS-DELAY-CS <= 0
+               MOVE 1 TO WS-DELAY-CS
+           END-IF
+
+           COMPUTE DC-HB-NEXT-AT = DC-HB-NOW-CS + WS-DELAY-CS
+           MOVE 0 TO DC-HB-DUE
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-HEARTBEAT-DEFER.

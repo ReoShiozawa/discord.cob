@@ -1,45 +1,44 @@
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. DC-EVENT-LOOP-TICK.
+       PROGRAM-ID. DC-VOICE-EVENT-LOOP-TICK.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
        COPY "discord-net.cpy".
-       COPY "discord-event.cpy".
-       01 WS-GATEWAY-JSON PIC X(8192).
-       01 WS-GATEWAY-ACTION PIC X(32).
-       01 WS-GATEWAY-PAYLOAD PIC X(8192).
+       01 WS-VOICE-JSON PIC X(8192).
+       01 WS-VOICE-ACTION PIC X(32).
+       01 WS-VOICE-PAYLOAD PIC X(8192).
        01 WS-NOW-CS PIC 9(18) COMP-5.
        01 WS-RECV-RESULT.
           05 WS-RECV-STATUS-CODE PIC S9(9) COMP-5.
           05 WS-RECV-ERROR-CODE PIC X(64).
           05 WS-RECV-ERROR-MESSAGE PIC X(256).
-       01 WS-DISPATCH-RESULT.
-          05 WS-DISPATCH-STATUS-CODE PIC S9(9) COMP-5.
-          05 WS-DISPATCH-ERROR-CODE PIC X(64).
-          05 WS-DISPATCH-ERROR-MESSAGE PIC X(256).
+
        LINKAGE SECTION.
        COPY "discord-client.cpy".
+       COPY "discord-voice.cpy".
        COPY "discord-result.cpy".
 
-       PROCEDURE DIVISION USING DC-CLIENT DC-RESULT.
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-VOICE-SESSION
+           DC-RESULT.
        MAIN.
-           IF DC-CLIENT-GW-WS-OPEN-FLAG NOT = 1
+           IF DC-VS-WS-OPEN-FLAG NOT = 1
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-               MOVE "DC_ERR_GATEWAY" TO DC-ERROR-CODE
-               MOVE "Gateway session is not open."
+               MOVE "DC_ERR_VOICE_GATEWAY" TO DC-ERROR-CODE
+               MOVE "Voice Gateway session is not open."
                    TO DC-ERROR-MESSAGE
                GOBACK
            END-IF
 
            INITIALIZE DC-WS-SESSION
            INITIALIZE DC-WS-FRAME
-           INITIALIZE DC-EVENT
-           MOVE SPACES TO WS-GATEWAY-JSON
-           MOVE SPACES TO WS-GATEWAY-ACTION
-           MOVE SPACES TO WS-GATEWAY-PAYLOAD
+           MOVE SPACES TO WS-VOICE-JSON
+           MOVE SPACES TO WS-VOICE-ACTION
+           MOVE SPACES TO WS-VOICE-PAYLOAD
 
-           CALL "DC-GATEWAY-SESSION-LOAD"
-               USING DC-CLIENT
+           CALL "DC-VOICE-GATEWAY-SESSION-LOAD"
+               USING DC-VOICE-SESSION
                      DC-WS-SESSION
                      DC-RESULT
            IF DC-STATUS-CODE NOT = DC-STATUS-OK
@@ -51,8 +50,8 @@
                      DC-WS-FRAME
                      WS-RECV-RESULT
            IF WS-RECV-STATUS-CODE = DC-STATUS-OK
-               CALL "DC-GATEWAY-SESSION-SAVE"
-                   USING DC-CLIENT
+               CALL "DC-VOICE-GATEWAY-SESSION-SAVE"
+                   USING DC-VOICE-SESSION
                          DC-WS-SESSION
                          DC-RESULT
                IF DC-STATUS-CODE NOT = DC-STATUS-OK
@@ -63,52 +62,33 @@
                    WHEN 1
                        IF DC-WS-PAYLOAD-LENGTH > 0
                            MOVE DC-WS-PAYLOAD(1:DC-WS-PAYLOAD-LENGTH)
-                               TO WS-GATEWAY-JSON(1:DC-WS-PAYLOAD-LENGTH)
+                               TO WS-VOICE-JSON(1:DC-WS-PAYLOAD-LENGTH)
                        END-IF
-                       CALL "DC-GATEWAY-HANDLE-PAYLOAD"
-                           USING DC-CLIENT
-                                 WS-GATEWAY-JSON
-                                 DC-EVENT
+                       CALL "DC-VOICE-HANDLE-PAYLOAD"
+                           USING DC-VOICE-SESSION
+                                 WS-VOICE-JSON
                                  DC-RESULT
                        IF DC-STATUS-CODE NOT = DC-STATUS-OK
                            GOBACK
                        END-IF
-                       IF FUNCTION TRIM(DC-EVENT-NAME) NOT = SPACES
-                           CALL "DC-DISPATCH"
-                               USING DC-CLIENT
-                                     DC-EVENT
-                                     WS-DISPATCH-RESULT
-                           IF WS-DISPATCH-STATUS-CODE
-                               NOT = DC-STATUS-OK
-                              AND WS-DISPATCH-STATUS-CODE
-                                  NOT = DC-STATUS-NOT-FOUND
-                               MOVE WS-DISPATCH-STATUS-CODE
-                                   TO DC-STATUS-CODE
-                               MOVE WS-DISPATCH-ERROR-CODE
-                                   TO DC-ERROR-CODE
-                               MOVE WS-DISPATCH-ERROR-MESSAGE
-                                   TO DC-ERROR-MESSAGE
-                               GOBACK
-                           END-IF
-                       END-IF
                    WHEN 8
-                       CALL "DC-CLIENT-DISCONNECT"
-                           USING DC-CLIENT
+                       CALL "DC-VOICE-DISCONNECT"
+                           USING DC-VOICE-SESSION
                                  DC-RESULT
                        GOBACK
                END-EVALUATE
            ELSE
                IF WS-RECV-STATUS-CODE = DC-STATUS-EOF
                    IF DC-WS-OPEN-FLAG NOT = 1
-                       CALL "DC-GATEWAY-SESSION-SAVE"
-                           USING DC-CLIENT
+                       CALL "DC-VOICE-GATEWAY-SESSION-SAVE"
+                           USING DC-VOICE-SESSION
                                  DC-WS-SESSION
                                  DC-RESULT
                        IF DC-STATUS-CODE NOT = DC-STATUS-OK
                            GOBACK
                        END-IF
-                       CALL "DC-CLIENT-DISCONNECT"
-                           USING DC-CLIENT
+                       CALL "DC-VOICE-DISCONNECT"
+                           USING DC-VOICE-SESSION
                                  DC-RESULT
                        GOBACK
                    END-IF
@@ -120,8 +100,8 @@
                END-IF
            END-IF
 
-           CALL "DC-GATEWAY-SESSION-LOAD"
-               USING DC-CLIENT
+           CALL "DC-VOICE-GATEWAY-SESSION-LOAD"
+               USING DC-VOICE-SESSION
                      DC-WS-SESSION
                      DC-RESULT
            IF DC-STATUS-CODE NOT = DC-STATUS-OK
@@ -136,47 +116,69 @@
            END-IF
 
            CALL "DC-HEARTBEAT-POLL"
-               USING DC-CLIENT-GW-HEARTBEAT-INTERVAL
-                     DC-CLIENT-GW-AWAITING-ACK
-                     DC-CLIENT-GW-HEARTBEAT-NEXT-AT
-                     DC-CLIENT-GW-HEARTBEAT-DUE
+               USING DC-VS-HEARTBEAT-INTERVAL
+                     DC-VS-AWAITING-ACK
+                     DC-VS-HEARTBEAT-NEXT-AT
+                     DC-VS-HEARTBEAT-DUE
                      WS-NOW-CS
                      DC-RESULT
            IF DC-STATUS-CODE NOT = DC-STATUS-OK
                GOBACK
            END-IF
 
-           CALL "DC-GATEWAY-NEXT-PAYLOAD"
+           IF DC-VS-STATE = 3
+              AND DC-VS-UDP-READY-FLAG = 1
+              AND FUNCTION TRIM(DC-VS-DISCOVERED-IP) = SPACES
+              AND DC-VS-SSRC > 0
+              AND DC-VS-COMMAND-QUEUED = 0
+               CALL "DC-VOICE-UDP-DISCOVER"
+                   USING DC-VOICE-SESSION
+                         DC-RESULT
+               IF DC-STATUS-CODE NOT = DC-STATUS-OK
+                   GOBACK
+               END-IF
+           END-IF
+
+           CALL "DC-MUSIC-VOICE-TICK"
                USING DC-CLIENT
-                     WS-GATEWAY-ACTION
-                     WS-GATEWAY-PAYLOAD
+                     DC-VOICE-SESSION
                      DC-RESULT
            IF DC-STATUS-CODE NOT = DC-STATUS-OK
                GOBACK
            END-IF
 
-           IF FUNCTION TRIM(WS-GATEWAY-ACTION) NOT = SPACES
-              AND FUNCTION TRIM(WS-GATEWAY-PAYLOAD) NOT = SPACES
+           CALL "DC-VOICE-NEXT-PAYLOAD"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     WS-VOICE-ACTION
+                     WS-VOICE-PAYLOAD
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           IF FUNCTION TRIM(WS-VOICE-ACTION) NOT = SPACES
+              AND FUNCTION TRIM(WS-VOICE-PAYLOAD) NOT = SPACES
                CALL "DC-WS-SEND-TEXT"
                    USING DC-WS-SESSION
-                         WS-GATEWAY-PAYLOAD
+                         WS-VOICE-PAYLOAD
                          DC-RESULT
                IF DC-STATUS-CODE NOT = DC-STATUS-OK
                    GOBACK
                END-IF
-               IF FUNCTION TRIM(WS-GATEWAY-ACTION) = "HEARTBEAT"
+               IF FUNCTION TRIM(WS-VOICE-ACTION) = "HEARTBEAT"
                    CALL "DC-HEARTBEAT-DEFER"
-                       USING DC-CLIENT-GW-HEARTBEAT-INTERVAL
-                             DC-CLIENT-GW-HEARTBEAT-NEXT-AT
-                             DC-CLIENT-GW-HEARTBEAT-DUE
+                       USING DC-VS-HEARTBEAT-INTERVAL
+                             DC-VS-HEARTBEAT-NEXT-AT
+                             DC-VS-HEARTBEAT-DUE
                              WS-NOW-CS
                              DC-RESULT
                    IF DC-STATUS-CODE NOT = DC-STATUS-OK
                        GOBACK
                    END-IF
                END-IF
-               CALL "DC-GATEWAY-SESSION-SAVE"
-                   USING DC-CLIENT
+               CALL "DC-VOICE-GATEWAY-SESSION-SAVE"
+                   USING DC-VOICE-SESSION
                          DC-WS-SESSION
                          DC-RESULT
                IF DC-STATUS-CODE NOT = DC-STATUS-OK
@@ -186,4 +188,4 @@
 
            CALL "DC-RESULT-OK" USING DC-RESULT
            GOBACK.
-       END PROGRAM DC-EVENT-LOOP-TICK.
+       END PROGRAM DC-VOICE-EVENT-LOOP-TICK.

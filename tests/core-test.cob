@@ -65,10 +65,11 @@
 
        DATA DIVISION.
        LINKAGE SECTION.
+       COPY "discord-client.cpy".
        COPY "discord-event.cpy".
        COPY "discord-result.cpy".
 
-       PROCEDURE DIVISION USING DC-EVENT DC-RESULT.
+       PROCEDURE DIVISION USING DC-CLIENT DC-EVENT DC-RESULT.
        MAIN.
            CALL "DC-RESULT-OK" USING DC-RESULT
            GOBACK.

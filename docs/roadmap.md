@@ -48,23 +48,23 @@ Next:
 
 ## Phase 3: Gateway
 
-Status: URL request prep, WS request prep, payload builders, outbound queueing, next-payload planning, HELLO handling, READY application, and basic synthetic op events are implemented.
+Status: URL request prep, WS request prep, live Gateway connect/login, event-loop tick send/recv flow, heartbeat scheduling, payload builders, outbound queueing, next-payload planning, HELLO handling, READY application, and basic synthetic op events are implemented.
 
 Next:
 
-- Heartbeat loop
-- live transport for Identify/Resume/custom sends
 - broader dispatch coverage
+- richer reconnect / disconnect lifecycle handling
+- missed-heartbeat / stale-ack handling
 
 ## Phase 4: Interactions
 
-Status: command router skeleton.
+Status: slash-command routing, interaction payload parsing, callback request building/sending, and registerable dispatcher-backed handlers are implemented.
 
 Next:
 
 - Slash command registration through HTTP
-- Interaction payload parser
-- Interaction callback HTTP response
+- Deferred / follow-up interaction responses
+- Component and modal interaction coverage
 
 ## Phase 5+: Voice / RTP / Crypto / Opus / Music
 
@@ -72,14 +72,13 @@ Status:
 
 - RTP packet builder implemented for unencrypted local tests
 - Music queue implemented
-- Voice payload builders, join/leave gateway payload queueing, state/server updates, and UDP discovery helpers are implemented
-- Voice WebSocket request preparation is implemented
-- Crypto transport and Opus reader remain skeletons
+- Initial Ogg Opus packet extraction and explicit reader close are implemented
+- Queue-backed playback state and a voice-attached playback tick are implemented for raw/local tests
+- Voice payload builders, join/leave gateway payload queueing, state/server updates, session description secret-key capture, and UDP discovery helpers are implemented
+- Voice WebSocket request preparation, live Voice Gateway connect, outbound queueing, heartbeat scheduling, UDP discovery apply-to-select-protocol flow, and a minimal event-loop tick are implemented
+- UDP voice transport has fixture-backed and OS-backed session flow, and encrypted RTP frame send is available for negotiated `aead_xchacha20_poly1305_rtpsize` sessions
+- Slash-command routing now reaches `/join`, `/leave`, `/play`, `/skip`, `/stop`, and `/queue`
 
 Next:
 
-- Voice Gateway WebSocket transport
-- Voice select-protocol/send flow
-- ChaCha20-Poly1305
-- Ogg Opus packet extraction
-- `/play file:<path>`
+- encrypted end-to-end playback over negotiated voice sessions

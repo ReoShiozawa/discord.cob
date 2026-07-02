@@ -23,6 +23,10 @@
            DC-VOICE-SESSION
            DC-RESULT.
        MAIN.
+      *> JP: Voice tick も Gateway tick と同様に recv -> state update -> heartbeat/UDP/music -> send の順です。
+      *> EN: The Voice tick mirrors the Gateway tick: recv -> state update -> heartbeat/UDP/music -> send.
+      *> JP: Voice 側は UDP discovery と media send が混ざるため、状態条件が Gateway より少し多めです。
+      *> EN: Voice has more state gates than Gateway because UDP discovery and media send join the flow.
            IF DC-VS-WS-OPEN-FLAG NOT = 1
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_VOICE_GATEWAY" TO DC-ERROR-CODE
@@ -50,6 +54,8 @@
                      DC-WS-FRAME
                      WS-RECV-RESULT
            IF WS-RECV-STATUS-CODE = DC-STATUS-OK
+      *> JP: 受信後はまず session を保存し、そのあと opcode ごとの処理へ入ります。
+      *> EN: Persist the session first after recv, then branch by opcode.
                CALL "DC-VOICE-GATEWAY-SESSION-SAVE"
                    USING DC-VOICE-SESSION
                          DC-WS-SESSION
@@ -58,11 +64,13 @@
                    GOBACK
                END-IF
 
-               EVALUATE DC-WS-OPCODE
-                   WHEN 1
-                       IF DC-WS-PAYLOAD-LENGTH > 0
-                           MOVE DC-WS-PAYLOAD(1:DC-WS-PAYLOAD-LENGTH)
-                               TO WS-VOICE-JSON(1:DC-WS-PAYLOAD-LENGTH)
+                EVALUATE DC-WS-OPCODE
+                    WHEN 1
+      *> JP: text frame は Voice Gateway payload として扱います。
+      *> EN: Text frames are treated as Voice Gateway payloads.
+                        IF DC-WS-PAYLOAD-LENGTH > 0
+                            MOVE DC-WS-PAYLOAD(1:DC-WS-PAYLOAD-LENGTH)
+                                TO WS-VOICE-JSON(1:DC-WS-PAYLOAD-LENGTH)
                        END-IF
                        CALL "DC-VOICE-HANDLE-PAYLOAD"
                            USING DC-VOICE-SESSION
@@ -71,10 +79,12 @@
                        IF DC-STATUS-CODE NOT = DC-STATUS-OK
                            GOBACK
                        END-IF
-                   WHEN 8
-                       CALL "DC-VOICE-DISCONNECT"
-                           USING DC-VOICE-SESSION
-                                 DC-RESULT
+                    WHEN 8
+      *> JP: Voice close frame は voice session 全体の teardown に繋げます。
+      *> EN: A Voice close frame tears down the entire voice session.
+                        CALL "DC-VOICE-DISCONNECT"
+                            USING DC-VOICE-SESSION
+                                  DC-RESULT
                        GOBACK
                END-EVALUATE
            ELSE
@@ -131,6 +141,8 @@
               AND FUNCTION TRIM(DC-VS-DISCOVERED-IP) = SPACES
               AND DC-VS-SSRC > 0
               AND DC-VS-COMMAND-QUEUED = 0
+      *> JP: UDP socket が準備済みで discovery 未完了なら、tick が自動で discovery packet を出します。
+      *> EN: Once the UDP socket is ready but discovery is unfinished, the tick auto-sends the discovery packet.
                CALL "DC-VOICE-UDP-DISCOVER"
                    USING DC-VOICE-SESSION
                          DC-RESULT
@@ -159,6 +171,8 @@
 
            IF FUNCTION TRIM(WS-VOICE-ACTION) NOT = SPACES
               AND FUNCTION TRIM(WS-VOICE-PAYLOAD) NOT = SPACES
+      *> JP: control payload の優先順は NEXT-PAYLOAD 側で決まり、ここは送信だけを担当します。
+      *> EN: NEXT-PAYLOAD decides control-payload priority; this paragraph only transmits it.
                CALL "DC-WS-SEND-TEXT"
                    USING DC-WS-SESSION
                          WS-VOICE-PAYLOAD

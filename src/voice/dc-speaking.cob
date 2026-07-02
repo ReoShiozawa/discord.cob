@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-SPEAKING-BUILD.
+       *> JP: Discord Voice の speaking payload を組み立てる helper です。
+       *> JP: 実際の音声 frame 送信前に状態通知を出すための JSON をここで作ります。
+       *> EN: Helper that builds Discord Voice speaking payloads.
+       *> EN: It creates the JSON used to announce speaking state before audio frames are sent.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

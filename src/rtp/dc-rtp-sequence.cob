@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-RTP-SEQUENCE-NEXT.
+       *> JP: RTP sequence number を前進させる最小 helper です。
+       *> JP: 連番ロジックを 1 箇所へ寄せ、packet builder 側を単純化します。
+       *> EN: Minimal helper that advances the RTP sequence number.
+       *> EN: It centralizes the rolling counter logic so packet builders stay simpler.
 
        DATA DIVISION.
        LINKAGE SECTION.

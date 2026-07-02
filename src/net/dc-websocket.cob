@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-WS-ENCODE-FRAME.
+       *> JP: WebSocket frame の encode/decode と接続 send/recv の helper 群です。
+       *> JP: Gateway/Voice 両方の WS session が共有する wire-format 処理を担います。
+       *> EN: Helpers for WebSocket frame encoding/decoding and connection send/recv.
+       *> EN: They provide the shared wire-format behavior used by both Gateway and Voice WS sessions.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -165,6 +169,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-WS-DECODE-FRAME.
+       *> JP: WebSocket frame の encode/decode と接続 send/recv の helper 群です。
+       *> JP: Gateway/Voice 両方の WS session が共有する wire-format 処理を担います。
+       *> EN: Helpers for WebSocket frame encoding/decoding and connection send/recv.
+       *> EN: They provide the shared wire-format behavior used by both Gateway and Voice WS sessions.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -351,6 +359,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-WS-CONNECT.
+       *> JP: WebSocket frame の encode/decode と接続 send/recv の helper 群です。
+       *> JP: Gateway/Voice 両方の WS session が共有する wire-format 処理を担います。
+       *> EN: Helpers for WebSocket frame encoding/decoding and connection send/recv.
+       *> EN: They provide the shared wire-format behavior used by both Gateway and Voice WS sessions.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -551,6 +563,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-WS-SEND-TEXT.
+       *> JP: WebSocket frame の encode/decode と接続 send/recv の helper 群です。
+       *> JP: Gateway/Voice 両方の WS session が共有する wire-format 処理を担います。
+       *> EN: Helpers for WebSocket frame encoding/decoding and connection send/recv.
+       *> EN: They provide the shared wire-format behavior used by both Gateway and Voice WS sessions.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -647,6 +663,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-WS-RECV.
+       *> JP: WebSocket frame の encode/decode と接続 send/recv の helper 群です。
+       *> JP: Gateway/Voice 両方の WS session が共有する wire-format 処理を担います。
+       *> EN: Helpers for WebSocket frame encoding/decoding and connection send/recv.
+       *> EN: They provide the shared wire-format behavior used by both Gateway and Voice WS sessions.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

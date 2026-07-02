@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. WEBSOCKET-TEST.
+       *> JP: WebSocket frame encode/decode と send/recv helper の契約を検証するテストです。
+       *> JP: Gateway/Voice 共通で使う WS wire format の土台をここで固定します。
+       *> EN: Test that verifies WebSocket frame encode/decode and send/recv contracts.
+       *> EN: It fixes the WS wire-format foundation shared by Gateway and Voice flows.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

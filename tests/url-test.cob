@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. URL-TEST.
+       *> JP: URL build/split helper の変換規則を検証するテストです。
+       *> JP: WSS endpoint の host/path/port 分解がずれないことを確認します。
+       *> EN: Test that verifies URL build/split transformation rules.
+       *> EN: It confirms that WSS endpoint host/path/port splitting stays correct.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

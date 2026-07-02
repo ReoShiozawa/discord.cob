@@ -1,5 +1,9 @@
 	       IDENTIFICATION DIVISION.
 	       PROGRAM-ID. DC-RESUME-BUILD.
+       *> JP: Gateway resume payload を組み立てる helper です。
+       *> JP: session id と last sequence を切断復帰用 JSON に詰め直します。
+       *> EN: Helper that builds Gateway resume payloads.
+       *> EN: It repacks the session id and last sequence into the reconnect JSON shape.
 
 	       DATA DIVISION.
 	       WORKING-STORAGE SECTION.

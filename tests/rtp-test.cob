@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. RTP-TEST.
+       *> JP: RTP header/packet/rolling counter helper の挙動を検証するテストです。
+       *> JP: transport 側が頼る sequence と timestamp の前進規則を確認します。
+       *> EN: Test that verifies RTP header/packet/rolling-counter behavior.
+       *> EN: It checks the sequence and timestamp advancement rules relied on by the transport layer.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

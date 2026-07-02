@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. CORE-TEST.
+       *> JP: core 初期化と event dispatch の最小経路を検証するテストです。
+       *> JP: 補助 handler program も含め、このファイルだけで基本 dispatch を閉じています。
+       *> EN: Test that verifies the minimal core initialization and event-dispatch path.
+       *> EN: Including the helper handler program, this file keeps the basic dispatch flow self-contained.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -62,6 +66,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. APP-ON-READY.
+       *> JP: core 初期化と event dispatch の最小経路を検証するテストです。
+       *> JP: 補助 handler program も含め、このファイルだけで基本 dispatch を閉じています。
+       *> EN: Test that verifies the minimal core initialization and event-dispatch path.
+       *> EN: Including the helper handler program, this file keeps the basic dispatch flow self-contained.
 
        DATA DIVISION.
        LINKAGE SECTION.

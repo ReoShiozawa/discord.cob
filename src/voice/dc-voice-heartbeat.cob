@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-HEARTBEAT-BUILD.
+       *> JP: Voice Gateway heartbeat payload を組み立てる helper です。
+       *> JP: Voice 側の keepalive 契約を Gateway 本体とは分けて扱います。
+       *> EN: Helper that builds Voice Gateway heartbeat payloads.
+       *> EN: It keeps the Voice-side keepalive contract separate from the main Gateway one.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

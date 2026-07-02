@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. TRANSPORT-TEST.
+       *> JP: TCP/TLS/UDP transport helper と fixture の共通面を検証するテストです。
+       *> JP: 実通信 abstraction と loopback fixture が同じ API 契約を守るかを見ます。
+       *> EN: Test that verifies the shared surface of TCP/TLS/UDP transport helpers and fixtures.
+       *> EN: It checks that real transport abstractions and loopback fixtures obey the same API contract.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

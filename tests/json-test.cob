@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. JSON-TEST.
+       *> JP: JSON validate/path/token/write helper の基本契約を検証するテストです。
+       *> JP: 上位レイヤーが依存する「最小限読める/書ける」をここで固定します。
+       *> EN: Test that verifies the basic contracts of JSON validate/path/token/write helpers.
+       *> EN: It locks down the minimal read/write behavior that higher layers depend on.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. WS-HANDSHAKE-TEST.
+       *> JP: WebSocket handshake helper 群の request/accept 検証を行うテストです。
+       *> JP: upgrade 前段の文字列処理が崩れないことを確認します。
+       *> EN: Test that verifies request/accept behavior of the WebSocket-handshake helpers.
+       *> EN: It confirms that the string handling before upgrade remains correct.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

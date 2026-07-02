@@ -14,6 +14,10 @@
            DC-VOICE-PAYLOAD-OUT
            DC-RESULT.
        MAIN.
+      *> JP: VOICE_STATE_UPDATE(op=4) は join と leave の両方で共有される payload builder です。
+      *> EN: VOICE_STATE_UPDATE (op=4) is the shared payload builder used by both join and leave.
+      *> JP: channel_id が空なら Discord には null を送り、leave として扱います。
+      *> EN: An empty channel_id is emitted as null so Discord interprets it as a leave.
            MOVE SPACES TO DC-VOICE-PAYLOAD-OUT
            IF FUNCTION TRIM(DC-VOICE-GUILD-ID-IN) = SPACES
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
@@ -120,6 +124,8 @@
            DC-VOICE-CHANNEL-ID-IN
            DC-RESULT.
        MAIN.
+      *> JP: Voice join 自体は Gateway outbound queue に VOICE_STATE_UPDATE を積むだけです。
+      *> EN: Voice join itself only queues a VOICE_STATE_UPDATE on the Gateway outbound queue.
            IF DC-CLIENT-STATE NOT = 2
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_GATEWAY_NOT_READY" TO DC-ERROR-CODE
@@ -164,6 +170,8 @@
            DC-VOICE-GUILD-ID-IN
            DC-RESULT.
        MAIN.
+      *> JP: leave も同じく queue ベースで、空 channel を使うだけです。
+      *> EN: Leave uses the same queue-based path, only with an empty channel id.
            IF DC-CLIENT-STATE NOT = 2
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_GATEWAY_NOT_READY" TO DC-ERROR-CODE
@@ -205,6 +213,10 @@
            DC-VOICE-CHANNEL-ID-IN
            DC-RESULT.
        MAIN.
+      *> JP: Voice session の最初の初期値をここでまとめて作ります。
+      *> EN: Establish the initial voice-session defaults in one place.
+      *> JP: 実際の endpoint/token/session_id は後続の Gateway voice events で埋まります。
+      *> EN: The actual endpoint/token/session_id arrive later from Gateway voice events.
            INITIALIZE DC-VOICE-SESSION
            MOVE DC-VOICE-GUILD-ID-IN TO DC-VS-GUILD-ID
            MOVE DC-VOICE-CHANNEL-ID-IN TO DC-VS-CHANNEL-ID

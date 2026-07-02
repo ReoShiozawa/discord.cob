@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-DAVE-INIT.
+       *> JP: DAVE 関連 state の初期化 helper です。
+       *> JP: voice 暗号化の追加交渉情報を固定長 state に載せる前提をここで整えます。
+       *> EN: Initialization helper for DAVE-related state.
+       *> EN: It prepares the fixed-size state used to carry extra negotiation data for voice encryption.
 
        DATA DIVISION.
        LINKAGE SECTION.

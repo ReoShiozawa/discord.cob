@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-QUEUE-INIT.
+       *> JP: music queue の初期化・push・pop を行う基礎 helper 群です。
+       *> JP: guild ごとの track 順序を固定長リングに近い形で扱います。
+       *> EN: Foundational helpers for initializing, pushing to, and popping from the music queue.
+       *> EN: They manage guild-scoped track order in a fixed-size queue structure.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -23,6 +27,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-QUEUE-PUSH.
+       *> JP: music queue の初期化・push・pop を行う基礎 helper 群です。
+       *> JP: guild ごとの track 順序を固定長リングに近い形で扱います。
+       *> EN: Foundational helpers for initializing, pushing to, and popping from the music queue.
+       *> EN: They manage guild-scoped track order in a fixed-size queue structure.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -60,6 +68,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-QUEUE-POP.
+       *> JP: music queue の初期化・push・pop を行う基礎 helper 群です。
+       *> JP: guild ごとの track 順序を固定長リングに近い形で扱います。
+       *> EN: Foundational helpers for initializing, pushing to, and popping from the music queue.
+       *> EN: They manage guild-scoped track order in a fixed-size queue structure.
 
        DATA DIVISION.
        LINKAGE SECTION.

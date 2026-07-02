@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-CRYPTO-ENCRYPT-VOICE.
+       *> JP: voice transport 向け暗号化の高水準入口です。
+       *> JP: RTP packet と鍵素材を受け、Discord voice wire format に近い形へまとめます。
+       *> EN: High-level encryption entry point for voice transport.
+       *> EN: It takes RTP-oriented input plus key material and prepares data close to Discord voice wire format.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

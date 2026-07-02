@@ -16,6 +16,10 @@
            DC-EVENT
            DC-RESULT.
        MAIN.
+      *> JP: Gateway payload から dispatcher 用の最小 event 形へ写します。
+      *> EN: Convert a Gateway payload into the minimal event shape used by the dispatcher.
+      *> JP: ここでは event 名と sequence を抜き、payload 本体はそのまま保持します。
+      *> EN: We extract the event name and sequence, while retaining the raw payload unchanged.
            INITIALIZE DC-EVENT
            MOVE "$.t" TO WS-PATH
            CALL "DC-JSON-GET-STRING"

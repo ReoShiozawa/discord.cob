@@ -1,3 +1,7 @@
+      *> JP: Voice 暗号化まわりで受け渡す固定長ワーク領域です。
+      *> JP: AEAD 入出力、nonce 進行、DAVE 交渉状態を動的確保なしでまとめます。
+      *> EN: Fixed-size work areas for voice-encryption flows.
+      *> EN: They group AEAD input/output, nonce progression, and DAVE negotiation state without dynamic allocation.
        01 DC-AEAD-CONTEXT.
           05 DC-AEAD-KEY PIC X(64).
           05 DC-AEAD-KEY-LENGTH PIC 9(5) COMP-5.

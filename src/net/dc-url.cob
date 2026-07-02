@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-URL-BUILD-WSS.
+       *> JP: WebSocket 用 URL の build / split を担う helper 群です。
+       *> JP: Gateway endpoint を host/path/port に分ける共通手順をここへ寄せています。
+       *> EN: Helpers for building and splitting WebSocket-oriented URLs.
+       *> EN: Common logic for turning Gateway endpoints into host/path/port parts lives here.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -32,6 +36,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-URL-SPLIT-WSS.
+       *> JP: WebSocket 用 URL の build / split を担う helper 群です。
+       *> JP: Gateway endpoint を host/path/port に分ける共通手順をここへ寄せています。
+       *> EN: Helpers for building and splitting WebSocket-oriented URLs.
+       *> EN: Common logic for turning Gateway endpoints into host/path/port parts lives here.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

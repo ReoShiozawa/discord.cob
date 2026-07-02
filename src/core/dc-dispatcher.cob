@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-ON.
+       *> JP: event 名と handler program 名を結び、実際に dispatch する core 入口です。
+       *> JP: 登録表の更新と呼び出しの責務をここにまとめています。
+       *> EN: Core entry point that binds event names to handler program names and dispatches them.
+       *> EN: Registration-table updates and actual invocation live together here.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -32,6 +36,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-DISPATCH.
+       *> JP: event 名と handler program 名を結び、実際に dispatch する core 入口です。
+       *> JP: 登録表の更新と呼び出しの責務をここにまとめています。
+       *> EN: Core entry point that binds event names to handler program names and dispatches them.
+       *> EN: Registration-table updates and actual invocation live together here.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

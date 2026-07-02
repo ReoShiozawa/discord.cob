@@ -2,7 +2,7 @@ COBC ?= cobc
 COBFLAGS ?= -free -Wall -I src/copybooks
 SODIUM_LIBS ?= $(shell pkg-config --libs libsodium 2>/dev/null || echo -lsodium)
 SOURCES := $(shell find src -name '*.cob' | sort)
-TESTS := core-test json-test http-test url-test transport-test websocket-test ws-handshake-test gateway-test voice-test rtp-test crypto-test command-router-test interaction-test opus-test music-queue-test music-playback-test
+TESTS := core-test json-test http-test url-test transport-test websocket-test ws-handshake-test gateway-test voice-test rtp-test crypto-test command-router-test interaction-test slash-command-test opus-test music-queue-test music-playback-test
 
 .PHONY: all build test clean
 

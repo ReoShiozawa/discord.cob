@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-STATE-RESET.
+       *> JP: client 全体の runtime state を既定値へ戻す reset helper です。
+       *> JP: 再接続やテスト初期化で「何を消すか」の基準をここへ寄せます。
+       *> EN: Reset helper that returns client runtime state to its defaults.
+       *> EN: Reconnect paths and tests use it as the canonical definition of what gets cleared.
 
        DATA DIVISION.
        LINKAGE SECTION.

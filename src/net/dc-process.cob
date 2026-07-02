@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-PROC-SPAWN.
+       *> JP: 外部 process を spawn/write/read/close する薄い OS 連携 helper 群です。
+       *> JP: transport 実装はここを通じて子 process ベースの I/O を抽象化します。
+       *> EN: Thin OS-facing helpers for spawning, writing to, reading from, and closing external processes.
+       *> EN: Transport implementations use them to abstract child-process-based I/O.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -136,6 +140,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-PROC-WRITE.
+       *> JP: 外部 process を spawn/write/read/close する薄い OS 連携 helper 群です。
+       *> JP: transport 実装はここを通じて子 process ベースの I/O を抽象化します。
+       *> EN: Thin OS-facing helpers for spawning, writing to, reading from, and closing external processes.
+       *> EN: Transport implementations use them to abstract child-process-based I/O.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -201,6 +209,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-PROC-READ.
+       *> JP: 外部 process を spawn/write/read/close する薄い OS 連携 helper 群です。
+       *> JP: transport 実装はここを通じて子 process ベースの I/O を抽象化します。
+       *> EN: Thin OS-facing helpers for spawning, writing to, reading from, and closing external processes.
+       *> EN: Transport implementations use them to abstract child-process-based I/O.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -257,6 +269,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-PROC-CLOSE.
+       *> JP: 外部 process を spawn/write/read/close する薄い OS 連携 helper 群です。
+       *> JP: transport 実装はここを通じて子 process ベースの I/O を抽象化します。
+       *> EN: Thin OS-facing helpers for spawning, writing to, reading from, and closing external processes.
+       *> EN: Transport implementations use them to abstract child-process-based I/O.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

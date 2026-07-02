@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-AUDIO-SOURCE-FROM-FILE.
+       *> JP: 外部入力を framework 内の audio source 表現へ写す入口です。
+       *> JP: ここでは source 文字列の受け皿をそろえ、実際の読み取りは後段に委ねます。
+       *> EN: Entry point that maps external input into the framework audio-source representation.
+       *> EN: It normalizes the source string shape here and leaves actual reading to later layers.
 
        DATA DIVISION.
        LINKAGE SECTION.

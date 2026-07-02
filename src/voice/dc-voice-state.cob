@@ -16,6 +16,10 @@
            DC-VOICE-SESSION
            DC-RESULT.
 	       MAIN.
+      *> JP: VOICE_STATE_UPDATE からは主に session_id を受け取ります。
+      *> EN: VOICE_STATE_UPDATE primarily contributes the session_id.
+      *> JP: token/endpoint が先に来ていれば identify 可能になるので、ここで state を進めます。
+      *> EN: If token/endpoint have already arrived, this makes identify possible and advances state.
 	           MOVE "$.d.session_id" TO WS-PATH
            CALL "DC-JSON-GET-STRING"
                USING DC-VOICE-JSON WS-PATH WS-TEXT DC-RESULT

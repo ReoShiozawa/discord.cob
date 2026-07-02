@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TCP-CONNECT.
+       *> JP: TCP 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: 実通信とテスト loopback が同じ表面 API を使えるようにしています。
+       *> EN: Helpers for TCP open/send/recv/close plus fixture support.
+       *> EN: Real transport and test loopback paths share the same surface API through this file.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -113,6 +117,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TCP-SEND.
+       *> JP: TCP 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: 実通信とテスト loopback が同じ表面 API を使えるようにしています。
+       *> EN: Helpers for TCP open/send/recv/close plus fixture support.
+       *> EN: Real transport and test loopback paths share the same surface API through this file.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -191,6 +199,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TCP-RECV.
+       *> JP: TCP 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: 実通信とテスト loopback が同じ表面 API を使えるようにしています。
+       *> EN: Helpers for TCP open/send/recv/close plus fixture support.
+       *> EN: Real transport and test loopback paths share the same surface API through this file.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -269,6 +281,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TCP-CLOSE.
+       *> JP: TCP 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: 実通信とテスト loopback が同じ表面 API を使えるようにしています。
+       *> EN: Helpers for TCP open/send/recv/close plus fixture support.
+       *> EN: Real transport and test loopback paths share the same surface API through this file.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -315,6 +331,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TCP-MOCK-SET-RESPONSE.
+       *> JP: TCP 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: 実通信とテスト loopback が同じ表面 API を使えるようにしています。
+       *> EN: Helpers for TCP open/send/recv/close plus fixture support.
+       *> EN: Real transport and test loopback paths share the same surface API through this file.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -373,6 +393,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TCP-MOCK-GET-LAST-REQUEST.
+       *> JP: TCP 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: 実通信とテスト loopback が同じ表面 API を使えるようにしています。
+       *> EN: Helpers for TCP open/send/recv/close plus fixture support.
+       *> EN: Real transport and test loopback paths share the same surface API through this file.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

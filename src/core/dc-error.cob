@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-RESULT-OK.
+       *> JP: 共通 result を成功/失敗形に整える最小 helper 群です。
+       *> JP: 多くの API が同じ終了規約に乗るので、ここが土台になります。
+       *> EN: Minimal helpers that shape the common result into success or error states.
+       *> EN: Many APIs rely on the same exit convention, so this file is foundational.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -15,6 +19,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-RESULT-ERROR.
+       *> JP: 共通 result を成功/失敗形に整える最小 helper 群です。
+       *> JP: 多くの API が同じ終了規約に乗るので、ここが土台になります。
+       *> EN: Minimal helpers that shape the common result into success or error states.
+       *> EN: Many APIs rely on the same exit convention, so this file is foundational.
 
        DATA DIVISION.
        LINKAGE SECTION.

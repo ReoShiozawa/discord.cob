@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-NOWPLAYING-FORMAT.
+       *> JP: 現在再生中 track を表示向け文字列へ整える formatter です。
+       *> JP: command 側はここで user-facing text を一箇所に寄せられます。
+       *> EN: Formatter that turns the currently playing track into display text.
+       *> EN: Command-side code can keep user-facing wording centralized here.
 
        DATA DIVISION.
        LINKAGE SECTION.

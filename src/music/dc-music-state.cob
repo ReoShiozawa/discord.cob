@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-STATE-LOAD.
+       *> JP: guild ごとの music runtime を load/save する state helper です。
+       *> JP: queue と player の断面を EXTERNAL ストアから出し入れします。
+       *> EN: State helper that loads and saves guild-scoped music runtimes.
+       *> EN: It moves queue and player snapshots in and out of the EXTERNAL store.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -60,6 +64,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-STATE-SAVE.
+       *> JP: guild ごとの music runtime を load/save する state helper です。
+       *> JP: queue と player の断面を EXTERNAL ストアから出し入れします。
+       *> EN: State helper that loads and saves guild-scoped music runtimes.
+       *> EN: It moves queue and player snapshots in and out of the EXTERNAL store.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

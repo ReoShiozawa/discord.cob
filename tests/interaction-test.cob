@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. INTERACTION-TEST.
+       *> JP: interaction parse/dispatch/reply の広い経路をまとめて検証する統合寄りテストです。
+       *> JP: 補助 handler program も同居させ、custom command/component/modal の流れまで確認します。
+       *> EN: Broad integration-style test for interaction parsing, dispatch, and reply flows.
+       *> EN: Helper handler programs live here too so custom command/component/modal flows can be checked end to end.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -10,16 +14,43 @@
        COPY "discord-net.cpy".
        COPY "discord-result.cpy".
        01 WS-RAW-PLAY-JSON PIC X(8192).
+       01 WS-RAW-CUSTOM-CMD-JSON PIC X(8192).
        01 WS-RAW-MISSING-OPTION-JSON PIC X(8192).
+       01 WS-RAW-BUTTON-JSON PIC X(8192).
+       01 WS-RAW-SELECT-JSON PIC X(8192).
+       01 WS-RAW-MODAL-JSON PIC X(8192).
        01 WS-WRAPPED-STOP-JSON PIC X(8192).
        01 WS-REPLY-PAYLOAD PIC X(8192).
        01 WS-EXPECTED-PLAY-REPLY PIC X(8192)
            VALUE '{"type":4,"data":{"content":"Queued: build/test/sample-opus.ogg"}}'.
+       01 WS-EXPECTED-MODAL-REPLY PIC X(8192).
+       01 WS-EXPECTED-UPDATE-REPLY PIC X(8192).
+       01 WS-EXPECTED-COMPONENT-REPLY PIC X(8192).
+       01 WS-DEFERRED-PAYLOAD PIC X(8192) VALUE '{"type":5}'.
+       01 WS-FOLLOWUP-PAYLOAD PIC X(8192) VALUE '{"content":"Later"}'.
+       01 WS-EDIT-PAYLOAD PIC X(8192) VALUE '{"content":"Edited later"}'.
+       01 WS-ORIGINAL-EDIT-PAYLOAD PIC X(8192)
+           VALUE '{"content":"Edited original"}'.
        01 WS-RAW-RESPONSE PIC X(8192).
        01 WS-DISCORD-HOST PIC X(256) VALUE "discord.com".
        01 WS-TLS-PORT PIC 9(5) COMP-5 VALUE 443.
        01 WS-SOURCE-PATH PIC X(512) VALUE "build/test/sample-opus.ogg".
        01 WS-GUILD-ID PIC X(32) VALUE "guild-1".
+       01 WS-MESSAGE-ID PIC X(32) VALUE "msg-1".
+       01 WS-SECRET-TEXT PIC X(2000) VALUE "Secret".
+       01 WS-LATER-TEXT PIC X(2000) VALUE "Later".
+       01 WS-UPDATE-TEXT PIC X(2000) VALUE "Updated from button.".
+       01 WS-SAVED-TEXT PIC X(2000) VALUE "Saved".
+       01 WS-VALUE-NAME PIC X(128).
+       01 WS-CUSTOM-CMD-NAME PIC X(128) VALUE "/panel".
+       01 WS-COMPONENT-ID PIC X(128) VALUE "btn:skip".
+       01 WS-MODAL-ID PIC X(128) VALUE "feedback-modal".
+       01 WS-MODAL-TITLE PIC X(128) VALUE "Feedback".
+       01 WS-CMD-HANDLER PIC X(64) VALUE "TEST-IA-CMD-HANDLER".
+       01 WS-COMP-HANDLER PIC X(64) VALUE "TEST-IA-COMP-HANDLER".
+       01 WS-MODAL-HANDLER PIC X(64) VALUE "TEST-IA-MODAL-HANDLER".
+       01 WS-MODAL-COMPONENTS-JSON PIC X(4096).
+       01 WS-COMPONENT-ROW-JSON PIC X(4096).
        01 WS-COMMAND PIC X(4096).
        01 WS-BODY-START PIC 9(5) COMP-5.
        01 WS-PATH PIC X(128).
@@ -33,12 +64,32 @@
            PERFORM WRITE-FIXTURE
            PERFORM INIT-CLIENT
            PERFORM BUILD-JSON-FIXTURES
+           PERFORM BUILD-EXPECTED-PAYLOADS
            PERFORM TEST-PARSE-RAW
            PERFORM TEST-PARSE-WRAPPED
+           PERFORM TEST-PARSE-COMPONENT
+           PERFORM TEST-PARSE-MODAL
            PERFORM TEST-HANDLE-PLAY
            PERFORM TEST-HANDLE-ERROR
            PERFORM TEST-HANDLE-EVENT
+           PERFORM TEST-BUILD-DEFERRED
+           PERFORM TEST-BUILD-EPHEMERAL
+           PERFORM TEST-BUILD-FOLLOWUP
+           PERFORM TEST-BUILD-FOLLOWUP-EDIT
+           PERFORM TEST-BUILD-FOLLOWUP-DELETE
+           PERFORM TEST-BUILD-ORIGINAL-EDIT
+           PERFORM TEST-BUILD-ORIGINAL-DELETE
+           PERFORM TEST-BUILD-UPDATE
+           PERFORM TEST-BUILD-COMPONENT
+           PERFORM TEST-BUILD-MODAL
+           PERFORM TEST-CUSTOM-COMMAND-HANDLER
+           PERFORM TEST-CUSTOM-COMPONENT-HANDLER
+           PERFORM TEST-CUSTOM-MODAL-HANDLER
            PERFORM TEST-CALLBACK-REPLY
+           PERFORM TEST-DEFER
+           PERFORM TEST-FOLLOWUP
+           PERFORM TEST-FOLLOWUP-EDIT
+           PERFORM TEST-FOLLOWUP-DELETE
            PERFORM TEST-DISPATCH-HANDLER-REPLY
            PERFORM FINISH-TEST.
 
@@ -81,12 +132,13 @@
                      DC-RESULT
            PERFORM CHECK-OK
            MOVE 2 TO DC-CLIENT-STATE
+           MOVE "app-1" TO DC-CLIENT-ID
            MOVE "user-1" TO DC-CLIENT-USER-ID.
 
        BUILD-JSON-FIXTURES.
            MOVE SPACES TO WS-RAW-PLAY-JSON
            STRING
-               '{"id":"int-1","token":"tok-1","guild_id":"guild-1",' 
+               '{"id":"int-1","token":"tok-1","type":2,"guild_id":"guild-1",'
                    DELIMITED BY SIZE
                '"channel_id":"text-1","member":{"user":{"id":"user-1"},'
                    DELIMITED BY SIZE
@@ -98,9 +150,19 @@
                INTO WS-RAW-PLAY-JSON
            END-STRING
 
+           MOVE SPACES TO WS-RAW-CUSTOM-CMD-JSON
+           STRING
+               '{"id":"int-9","token":"tok-9","type":2,"guild_id":"guild-9",'
+                   DELIMITED BY SIZE
+               '"channel_id":"text-9","member":{"user":{"id":"user-9"}},'
+                   DELIMITED BY SIZE
+               '"data":{"name":"/panel"}}' DELIMITED BY SIZE
+               INTO WS-RAW-CUSTOM-CMD-JSON
+           END-STRING
+
            MOVE SPACES TO WS-RAW-MISSING-OPTION-JSON
            STRING
-               '{"id":"int-1","token":"tok-1","guild_id":"guild-1",' 
+               '{"id":"int-1","token":"tok-1","type":2,"guild_id":"guild-1",'
                    DELIMITED BY SIZE
                '"channel_id":"text-1","member":{"user":{"id":"user-1"},'
                    DELIMITED BY SIZE
@@ -109,16 +171,97 @@
                INTO WS-RAW-MISSING-OPTION-JSON
            END-STRING
 
+           MOVE SPACES TO WS-RAW-BUTTON-JSON
+           STRING
+               '{"id":"int-3","token":"tok-3","type":3,"guild_id":"guild-3",'
+                   DELIMITED BY SIZE
+               '"channel_id":"text-3","member":{"user":{"id":"user-3"}},'
+                   DELIMITED BY SIZE
+               '"data":{"custom_id":"btn:skip","component_type":2}}'
+                   DELIMITED BY SIZE
+               INTO WS-RAW-BUTTON-JSON
+           END-STRING
+
+           MOVE SPACES TO WS-RAW-SELECT-JSON
+           STRING
+               '{"id":"int-4","token":"tok-4","type":3,"guild_id":"guild-4",'
+                   DELIMITED BY SIZE
+               '"channel_id":"text-4","member":{"user":{"id":"user-4"}},'
+                   DELIMITED BY SIZE
+               '"data":{"custom_id":"genre","component_type":3,'
+                   DELIMITED BY SIZE
+               '"values":["jazz","fusion"]}}'
+                   DELIMITED BY SIZE
+               INTO WS-RAW-SELECT-JSON
+           END-STRING
+
+           MOVE SPACES TO WS-RAW-MODAL-JSON
+           STRING
+               '{"id":"int-5","token":"tok-5","type":5,"guild_id":"guild-5",'
+                   DELIMITED BY SIZE
+               '"channel_id":"text-5","member":{"user":{"id":"user-5"}},'
+                   DELIMITED BY SIZE
+               '"data":{"custom_id":"feedback-modal","components":['
+                   DELIMITED BY SIZE
+               '{"type":1,"components":[{"type":4,"custom_id":"notes",'
+                   DELIMITED BY SIZE
+               '"value":"hello world"}]}]}}' DELIMITED BY SIZE
+               INTO WS-RAW-MODAL-JSON
+           END-STRING
+
            MOVE SPACES TO WS-WRAPPED-STOP-JSON
            STRING
                '{"op":0,"t":"INTERACTION_CREATE","s":77,"d":{' 
                    DELIMITED BY SIZE
-               '"id":"int-2","token":"tok-2","guild_id":"guild-2",'
+               '"id":"int-2","token":"tok-2","type":2,"guild_id":"guild-2",'
                    DELIMITED BY SIZE
                '"channel_id":"text-2","member":{"user":{"id":"user-2"}},'
                    DELIMITED BY SIZE
                '"data":{"name":"/stop"}}}' DELIMITED BY SIZE
                INTO WS-WRAPPED-STOP-JSON
+           END-STRING.
+
+       BUILD-EXPECTED-PAYLOADS.
+           MOVE SPACES TO WS-MODAL-COMPONENTS-JSON
+           STRING
+               '[{"type":1,"components":[{"type":4,' DELIMITED BY SIZE
+               '"custom_id":"notes","label":"Notes","style":1}]}]'
+                   DELIMITED BY SIZE
+               INTO WS-MODAL-COMPONENTS-JSON
+           END-STRING
+
+           MOVE SPACES TO WS-COMPONENT-ROW-JSON
+           STRING
+               '[{"type":1,"components":[{"type":2,' DELIMITED BY SIZE
+               '"style":2,"label":"Done","custom_id":"done"}]}]'
+                   DELIMITED BY SIZE
+               INTO WS-COMPONENT-ROW-JSON
+           END-STRING
+
+           MOVE SPACES TO WS-EXPECTED-MODAL-REPLY
+           STRING
+               '{"type":9,"data":{"custom_id":"feedback-modal",'
+                   DELIMITED BY SIZE
+               '"title":"Feedback","components":' DELIMITED BY SIZE
+               FUNCTION TRIM(WS-MODAL-COMPONENTS-JSON) DELIMITED BY SIZE
+               "}}" DELIMITED BY SIZE
+               INTO WS-EXPECTED-MODAL-REPLY
+           END-STRING
+
+           MOVE SPACES TO WS-EXPECTED-UPDATE-REPLY
+           STRING
+               '{"type":7,"data":{"content":"Updated from button."}}'
+                   DELIMITED BY SIZE
+               INTO WS-EXPECTED-UPDATE-REPLY
+           END-STRING
+
+           MOVE SPACES TO WS-EXPECTED-COMPONENT-REPLY
+           STRING
+               '{"type":4,"data":{"content":"Saved","components":'
+                   DELIMITED BY SIZE
+               FUNCTION TRIM(WS-COMPONENT-ROW-JSON) DELIMITED BY SIZE
+               "}}" DELIMITED BY SIZE
+               INTO WS-EXPECTED-COMPONENT-REPLY
            END-STRING.
 
        TEST-PARSE-RAW.
@@ -177,6 +320,10 @@
                DISPLAY "interaction-test: raw token mismatch"
                ADD 1 TO WS-FAILURES
            END-IF
+           IF DC-INTERACTION-TYPE NOT = 2
+               DISPLAY "interaction-test: raw type mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
            IF FUNCTION TRIM(DC-GUILD-ID) NOT = "guild-1"
                DISPLAY "interaction-test: raw guild mismatch"
                ADD 1 TO WS-FAILURES
@@ -214,12 +361,92 @@
                DISPLAY "interaction-test: wrapped id mismatch"
                ADD 1 TO WS-FAILURES
            END-IF
+           IF DC-INTERACTION-TYPE NOT = 2
+               DISPLAY "interaction-test: wrapped type mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
            IF FUNCTION TRIM(DC-COMMAND-NAME) NOT = "/stop"
                DISPLAY "interaction-test: wrapped command mismatch"
                ADD 1 TO WS-FAILURES
            END-IF
            IF FUNCTION TRIM(DC-GUILD-ID) NOT = "guild-2"
                DISPLAY "interaction-test: wrapped guild mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-PARSE-COMPONENT.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-BUTTON-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-INTERACTION-TYPE NOT = 3
+               DISPLAY "interaction-test: button type mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-INTERACTION-CUSTOM-ID) NOT = "btn:skip"
+               DISPLAY "interaction-test: button custom id mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-INTERACTION-COMPONENT-TYPE NOT = 2
+               DISPLAY "interaction-test: button component type mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-SELECT-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-INTERACTION-VALUE-COUNT NOT = 2
+               DISPLAY "interaction-test: select value count mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           MOVE "genre" TO WS-VALUE-NAME
+           MOVE SPACES TO WS-TEXT
+           CALL "DC-INTERACTION-GET-VALUE"
+               USING DC-INTERACTION
+                     WS-VALUE-NAME
+                     WS-TEXT
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-TEXT) NOT = "jazz"
+               DISPLAY "interaction-test: select first value mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-PARSE-MODAL.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-MODAL-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-INTERACTION-TYPE NOT = 5
+               DISPLAY "interaction-test: modal type mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-INTERACTION-CUSTOM-ID)
+               NOT = "feedback-modal"
+               DISPLAY "interaction-test: modal custom id mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-INTERACTION-VALUE-COUNT NOT = 1
+               DISPLAY "interaction-test: modal value count mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           MOVE "notes" TO WS-VALUE-NAME
+           MOVE SPACES TO WS-TEXT
+           CALL "DC-INTERACTION-GET-VALUE"
+               USING DC-INTERACTION
+                     WS-VALUE-NAME
+                     WS-TEXT
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-TEXT) NOT = "hello world"
+               DISPLAY "interaction-test: modal value mismatch"
                ADD 1 TO WS-FAILURES
            END-IF.
 
@@ -288,6 +515,282 @@
                ADD 1 TO WS-FAILURES
            END-IF.
 
+       TEST-BUILD-DEFERRED.
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-BUILD-DEFERRED"
+               USING WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-DEFERRED-PAYLOAD)
+               DISPLAY "interaction-test: deferred payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BUILD-EPHEMERAL.
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-BUILD-EPHEMERAL"
+               USING WS-SECRET-TEXT
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = '{"type":4,"data":{"content":"Secret","flags":64}}'
+               DISPLAY "interaction-test: ephemeral payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BUILD-FOLLOWUP.
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-BUILD-FOLLOWUP"
+               USING WS-LATER-TEXT
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-FOLLOWUP-PAYLOAD)
+               DISPLAY "interaction-test: followup payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BUILD-FOLLOWUP-EDIT.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           INITIALIZE DC-HTTP-REQUEST
+           CALL "DC-INTERACTION-FUP-EDIT-BUILD"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-MESSAGE-ID
+                     WS-EDIT-PAYLOAD
+                     DC-HTTP-REQUEST
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-HTTP-METHOD) NOT = "PATCH"
+               DISPLAY "interaction-test: followup edit method mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HTTP-PATH)
+               NOT = "/api/v10/webhooks/app-1/tok-1/messages/msg-1"
+               DISPLAY "interaction-test: followup edit path mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HTTP-CONTENT-TYPE)
+               NOT = "application/json"
+               DISPLAY "interaction-test: followup edit content-type mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-HTTP-BODY(1:FUNCTION LENGTH(
+               FUNCTION TRIM(WS-EDIT-PAYLOAD TRAILING)))
+               NOT = FUNCTION TRIM(WS-EDIT-PAYLOAD)
+               DISPLAY "interaction-test: followup edit body mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BUILD-FOLLOWUP-DELETE.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           INITIALIZE DC-HTTP-REQUEST
+           CALL "DC-INTERACTION-FUP-DEL-BUILD"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-MESSAGE-ID
+                     DC-HTTP-REQUEST
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-HTTP-METHOD) NOT = "DELETE"
+               DISPLAY "interaction-test: followup delete method mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HTTP-PATH)
+               NOT = "/api/v10/webhooks/app-1/tok-1/messages/msg-1"
+               DISPLAY "interaction-test: followup delete path mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HTTP-CONTENT-TYPE) NOT = SPACES
+               DISPLAY "interaction-test: followup delete content-type mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-HTTP-BODY-LENGTH NOT = 0
+               DISPLAY "interaction-test: followup delete body length mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BUILD-ORIGINAL-EDIT.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           INITIALIZE DC-HTTP-REQUEST
+           CALL "DC-INTERACTION-ORIG-EDIT-BUILD"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-ORIGINAL-EDIT-PAYLOAD
+                     DC-HTTP-REQUEST
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-HTTP-METHOD) NOT = "PATCH"
+               DISPLAY "interaction-test: original edit method mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HTTP-PATH)
+               NOT = "/api/v10/webhooks/app-1/tok-1/messages/@original"
+               DISPLAY "interaction-test: original edit path mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-HTTP-BODY(1:FUNCTION LENGTH(
+               FUNCTION TRIM(WS-ORIGINAL-EDIT-PAYLOAD TRAILING)))
+               NOT = FUNCTION TRIM(WS-ORIGINAL-EDIT-PAYLOAD)
+               DISPLAY "interaction-test: original edit body mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BUILD-ORIGINAL-DELETE.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           INITIALIZE DC-HTTP-REQUEST
+           CALL "DC-INTERACTION-ORIG-DEL-BUILD"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-HTTP-REQUEST
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-HTTP-METHOD) NOT = "DELETE"
+               DISPLAY "interaction-test: original delete method mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HTTP-PATH)
+               NOT = "/api/v10/webhooks/app-1/tok-1/messages/@original"
+               DISPLAY "interaction-test: original delete path mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-HTTP-BODY-LENGTH NOT = 0
+               DISPLAY "interaction-test: original delete body length mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BUILD-UPDATE.
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-BUILD-UPDATE"
+               USING WS-UPDATE-TEXT
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-EXPECTED-UPDATE-REPLY)
+               DISPLAY "interaction-test: update payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BUILD-COMPONENT.
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-BUILD-COMPONENT"
+               USING WS-SAVED-TEXT
+                     WS-COMPONENT-ROW-JSON
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-EXPECTED-COMPONENT-REPLY)
+               DISPLAY "interaction-test: component payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BUILD-MODAL.
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-BUILD-MODAL"
+               USING WS-MODAL-ID
+                     WS-MODAL-TITLE
+                     WS-MODAL-COMPONENTS-JSON
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-EXPECTED-MODAL-REPLY)
+               DISPLAY "interaction-test: modal payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-CUSTOM-COMMAND-HANDLER.
+           CALL "DC-INTERACTION-ON-COMMAND"
+               USING DC-CLIENT
+                     WS-CUSTOM-CMD-NAME
+                     WS-CMD-HANDLER
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-HANDLE"
+               USING DC-CLIENT
+                     WS-RAW-CUSTOM-CMD-JSON
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-EXPECTED-MODAL-REPLY)
+               DISPLAY "interaction-test: custom command reply mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-CUSTOM-COMPONENT-HANDLER.
+           CALL "DC-INTERACTION-ON-COMPONENT"
+               USING DC-CLIENT
+                     WS-COMPONENT-ID
+                     WS-COMP-HANDLER
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-HANDLE"
+               USING DC-CLIENT
+                     WS-RAW-BUTTON-JSON
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-EXPECTED-UPDATE-REPLY)
+               DISPLAY "interaction-test: custom component reply mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-CUSTOM-MODAL-HANDLER.
+           CALL "DC-INTERACTION-ON-MODAL"
+               USING DC-CLIENT
+                     WS-MODAL-ID
+                     WS-MODAL-HANDLER
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-HANDLE"
+               USING DC-CLIENT
+                     WS-RAW-MODAL-JSON
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-EXPECTED-COMPONENT-REPLY)
+               DISPLAY "interaction-test: custom modal reply mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-CALLBACK-REPLY.
            INITIALIZE DC-INTERACTION
            CALL "DC-INTERACTION-FROM-JSON"
@@ -296,6 +799,7 @@
                      DC-RESULT
            PERFORM CHECK-OK
 
+           MOVE WS-EXPECTED-PLAY-REPLY TO WS-REPLY-PAYLOAD
            INITIALIZE DC-HTTP-REQUEST
            CALL "DC-INTERACTION-CALLBACK-BUILD"
                USING DC-INTERACTION
@@ -325,6 +829,194 @@
                FUNCTION TRIM(WS-REPLY-PAYLOAD TRAILING)))
                NOT = FUNCTION TRIM(WS-REPLY-PAYLOAD)
                DISPLAY "interaction-test: callback body mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-DEFER.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-CALLBACK-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-DEFER"
+               USING DC-INTERACTION
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 204
+               DISPLAY "interaction-test: defer status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           COMPUTE WS-BODY-START =
+               FUNCTION LENGTH(FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING))
+               - FUNCTION LENGTH(
+                   FUNCTION TRIM(WS-DEFERRED-PAYLOAD TRAILING))
+               + 1
+           IF WS-BODY-START < 1
+               DISPLAY "interaction-test: defer body offset mismatch"
+               ADD 1 TO WS-FAILURES
+           ELSE
+               IF DC-HTTP-BUFFER-DATA(
+                   WS-BODY-START:
+                   FUNCTION LENGTH(
+                       FUNCTION TRIM(WS-DEFERRED-PAYLOAD TRAILING)))
+                   NOT = FUNCTION TRIM(WS-DEFERRED-PAYLOAD)
+                   DISPLAY "interaction-test: defer body mismatch"
+                   ADD 1 TO WS-FAILURES
+               END-IF
+           END-IF.
+
+       TEST-FOLLOWUP.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-FOLLOWUP-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-FOLLOWUP"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-PAYLOAD
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY "interaction-test: followup status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:43)
+               NOT = "POST /api/v10/webhooks/app-1/tok-1 HTTP/1.1"
+               DISPLAY "interaction-test: followup request mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           COMPUTE WS-BODY-START =
+               FUNCTION LENGTH(FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING))
+               - FUNCTION LENGTH(
+                   FUNCTION TRIM(WS-FOLLOWUP-PAYLOAD TRAILING))
+               + 1
+           IF WS-BODY-START < 1
+               DISPLAY "interaction-test: followup body offset mismatch"
+               ADD 1 TO WS-FAILURES
+           ELSE
+               IF DC-HTTP-BUFFER-DATA(
+                   WS-BODY-START:
+                   FUNCTION LENGTH(
+                       FUNCTION TRIM(WS-FOLLOWUP-PAYLOAD TRAILING)))
+                   NOT = FUNCTION TRIM(WS-FOLLOWUP-PAYLOAD)
+                   DISPLAY "interaction-test: followup body mismatch"
+                   ADD 1 TO WS-FAILURES
+               END-IF
+           END-IF.
+
+       TEST-FOLLOWUP-EDIT.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-FOLLOWUP-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-FUP-EDIT"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-MESSAGE-ID
+                     WS-EDIT-PAYLOAD
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY "interaction-test: followup edit status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:59)
+               NOT = "PATCH /api/v10/webhooks/app-1/tok-1/messages/msg-1 HTTP/1.1"
+               DISPLAY "interaction-test: followup edit request mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           COMPUTE WS-BODY-START =
+               FUNCTION LENGTH(FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING))
+               - FUNCTION LENGTH(
+                   FUNCTION TRIM(WS-EDIT-PAYLOAD TRAILING))
+               + 1
+           IF WS-BODY-START < 1
+               DISPLAY "interaction-test: followup edit body offset mismatch"
+               ADD 1 TO WS-FAILURES
+           ELSE
+               IF DC-HTTP-BUFFER-DATA(
+                   WS-BODY-START:
+                   FUNCTION LENGTH(
+                       FUNCTION TRIM(WS-EDIT-PAYLOAD TRAILING)))
+                   NOT = FUNCTION TRIM(WS-EDIT-PAYLOAD)
+                   DISPLAY "interaction-test: followup edit body mismatch"
+                   ADD 1 TO WS-FAILURES
+               END-IF
+           END-IF.
+
+       TEST-FOLLOWUP-DELETE.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-CALLBACK-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-FUP-DEL"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-MESSAGE-ID
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 204
+               DISPLAY "interaction-test: followup delete status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:60)
+               NOT = "DELETE /api/v10/webhooks/app-1/tok-1/messages/msg-1 HTTP/1.1"
+               DISPLAY "interaction-test: followup delete request mismatch"
                ADD 1 TO WS-FAILURES
            END-IF.
 
@@ -395,6 +1087,27 @@
                      DC-RESULT
            PERFORM CHECK-OK.
 
+       PREPARE-FOLLOWUP-FIXTURE.
+           INITIALIZE DC-HTTP-BUFFER
+           MOVE SPACES TO WS-RAW-RESPONSE
+           STRING
+               "HTTP/1.1 200 OK" DELIMITED BY SIZE
+               X"0D0A" DELIMITED BY SIZE
+               "Content-Length: 2" DELIMITED BY SIZE
+               X"0D0A0D0A" DELIMITED BY SIZE
+               "{}" DELIMITED BY SIZE
+               INTO WS-RAW-RESPONSE
+           END-STRING
+           MOVE FUNCTION LENGTH(FUNCTION TRIM(WS-RAW-RESPONSE TRAILING))
+               TO DC-HTTP-BUFFER-LENGTH
+           MOVE WS-RAW-RESPONSE TO DC-HTTP-BUFFER-DATA
+           CALL "DC-TLS-MOCK-SET-RESPONSE"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK.
+
        RESET-GATEWAY-COMMAND.
            MOVE 0 TO DC-CLIENT-GW-COMMAND-QUEUED
            MOVE SPACES TO DC-CLIENT-GW-COMMAND-NAME
@@ -418,3 +1131,110 @@
            END-IF
            STOP RUN RETURNING WS-EXIT-CODE.
        END PROGRAM INTERACTION-TEST.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-IA-CMD-HANDLER.
+       *> JP: interaction parse/dispatch/reply の広い経路をまとめて検証する統合寄りテストです。
+       *> JP: 補助 handler program も同居させ、custom command/component/modal の流れまで確認します。
+       *> EN: Broad integration-style test for interaction parsing, dispatch, and reply flows.
+       *> EN: Helper handler programs live here too so custom command/component/modal flows can be checked end to end.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-COMPONENTS-JSON PIC X(4096).
+       01 WS-MODAL-ID PIC X(128) VALUE "feedback-modal".
+       01 WS-MODAL-TITLE PIC X(128) VALUE "Feedback".
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-REPLY-PAYLOAD PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-REPLY-PAYLOAD
+           DC-RESULT.
+       MAIN.
+           MOVE SPACES TO WS-COMPONENTS-JSON
+           STRING
+               '[{"type":1,"components":[{"type":4,' DELIMITED BY SIZE
+               '"custom_id":"notes","label":"Notes","style":1}]}]'
+                   DELIMITED BY SIZE
+               INTO WS-COMPONENTS-JSON
+           END-STRING
+           CALL "DC-INTERACTION-BUILD-MODAL"
+               USING WS-MODAL-ID
+                     WS-MODAL-TITLE
+                     WS-COMPONENTS-JSON
+                     DC-REPLY-PAYLOAD
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM TEST-IA-CMD-HANDLER.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-IA-COMP-HANDLER.
+       *> JP: interaction parse/dispatch/reply の広い経路をまとめて検証する統合寄りテストです。
+       *> JP: 補助 handler program も同居させ、custom command/component/modal の流れまで確認します。
+       *> EN: Broad integration-style test for interaction parsing, dispatch, and reply flows.
+       *> EN: Helper handler programs live here too so custom command/component/modal flows can be checked end to end.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-UPDATE-TEXT PIC X(2000) VALUE "Updated from button.".
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-REPLY-PAYLOAD PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-REPLY-PAYLOAD
+           DC-RESULT.
+       MAIN.
+           CALL "DC-INTERACTION-BUILD-UPDATE"
+               USING WS-UPDATE-TEXT
+                     DC-REPLY-PAYLOAD
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM TEST-IA-COMP-HANDLER.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-IA-MODAL-HANDLER.
+       *> JP: interaction parse/dispatch/reply の広い経路をまとめて検証する統合寄りテストです。
+       *> JP: 補助 handler program も同居させ、custom command/component/modal の流れまで確認します。
+       *> EN: Broad integration-style test for interaction parsing, dispatch, and reply flows.
+       *> EN: Helper handler programs live here too so custom command/component/modal flows can be checked end to end.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-COMPONENTS-JSON PIC X(4096).
+       01 WS-SAVED-TEXT PIC X(2000) VALUE "Saved".
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-REPLY-PAYLOAD PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-REPLY-PAYLOAD
+           DC-RESULT.
+       MAIN.
+           MOVE SPACES TO WS-COMPONENTS-JSON
+           STRING
+               '[{"type":1,"components":[{"type":2,' DELIMITED BY SIZE
+               '"style":2,"label":"Done","custom_id":"done"}]}]'
+                   DELIMITED BY SIZE
+               INTO WS-COMPONENTS-JSON
+           END-STRING
+           CALL "DC-INTERACTION-BUILD-COMPONENT"
+               USING WS-SAVED-TEXT
+                     WS-COMPONENTS-JSON
+                     DC-REPLY-PAYLOAD
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM TEST-IA-MODAL-HANDLER.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-AEAD-ENCRYPT.
+       *> JP: Voice packet 暗号化で使う AEAD 処理の入口です。
+       *> JP: key、nonce、AAD、payload を固定長 context から受け取り結果を返します。
+       *> EN: Entry point for AEAD processing used in voice-packet encryption.
+       *> EN: It consumes key, nonce, AAD, and payload from the fixed-size context and returns the result.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

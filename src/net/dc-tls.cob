@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TLS-CONNECT.
+       *> JP: TLS 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: Discord への HTTPS / WSS 前段で必要な暗号化 transport をここで扱います。
+       *> EN: Helpers for TLS open/send/recv/close plus fixture support.
+       *> EN: This file handles the encrypted transport used before HTTPS and WSS communication with Discord.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -116,6 +120,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TLS-SEND.
+       *> JP: TLS 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: Discord への HTTPS / WSS 前段で必要な暗号化 transport をここで扱います。
+       *> EN: Helpers for TLS open/send/recv/close plus fixture support.
+       *> EN: This file handles the encrypted transport used before HTTPS and WSS communication with Discord.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -194,6 +202,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TLS-RECV.
+       *> JP: TLS 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: Discord への HTTPS / WSS 前段で必要な暗号化 transport をここで扱います。
+       *> EN: Helpers for TLS open/send/recv/close plus fixture support.
+       *> EN: This file handles the encrypted transport used before HTTPS and WSS communication with Discord.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -272,6 +284,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TLS-CLOSE.
+       *> JP: TLS 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: Discord への HTTPS / WSS 前段で必要な暗号化 transport をここで扱います。
+       *> EN: Helpers for TLS open/send/recv/close plus fixture support.
+       *> EN: This file handles the encrypted transport used before HTTPS and WSS communication with Discord.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -318,6 +334,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TLS-MOCK-SET-RESPONSE.
+       *> JP: TLS 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: Discord への HTTPS / WSS 前段で必要な暗号化 transport をここで扱います。
+       *> EN: Helpers for TLS open/send/recv/close plus fixture support.
+       *> EN: This file handles the encrypted transport used before HTTPS and WSS communication with Discord.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -376,6 +396,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-TLS-MOCK-GET-LAST-REQUEST.
+       *> JP: TLS 接続の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: Discord への HTTPS / WSS 前段で必要な暗号化 transport をここで扱います。
+       *> EN: Helpers for TLS open/send/recv/close plus fixture support.
+       *> EN: This file handles the encrypted transport used before HTTPS and WSS communication with Discord.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

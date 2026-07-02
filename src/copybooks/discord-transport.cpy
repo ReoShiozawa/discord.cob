@@ -1,3 +1,7 @@
+      *> JP: TCP/TLS/UDP の簡易 registry と fixture ストアをまとめた transport 共通領域です。
+      *> JP: 実通信とテスト用 loopback の両方がこの固定長テーブルを土台にします。
+      *> EN: Shared transport area for lightweight TCP/TLS/UDP registries and fixture stores.
+      *> EN: Both real transport helpers and test loopbacks build on these fixed-size tables.
        78 DC-TRANSPORT-MAX-ENTRIES VALUE 16.
 
        01 DC-TCP-REGISTRY-STORE EXTERNAL.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-UDP-OPEN.
+       *> JP: UDP socket の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: voice discovery や音声 packet 送信の土台になる最小 transport 層です。
+       *> EN: Helpers for UDP open/send/recv/close plus fixture support.
+       *> EN: It is the minimal transport layer underneath voice discovery and audio-packet sending.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -104,6 +108,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-UDP-SEND.
+       *> JP: UDP socket の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: voice discovery や音声 packet 送信の土台になる最小 transport 層です。
+       *> EN: Helpers for UDP open/send/recv/close plus fixture support.
+       *> EN: It is the minimal transport layer underneath voice discovery and audio-packet sending.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -190,6 +198,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-UDP-RECV.
+       *> JP: UDP socket の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: voice discovery や音声 packet 送信の土台になる最小 transport 層です。
+       *> EN: Helpers for UDP open/send/recv/close plus fixture support.
+       *> EN: It is the minimal transport layer underneath voice discovery and audio-packet sending.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -305,6 +317,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-UDP-CLOSE.
+       *> JP: UDP socket の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: voice discovery や音声 packet 送信の土台になる最小 transport 層です。
+       *> EN: Helpers for UDP open/send/recv/close plus fixture support.
+       *> EN: It is the minimal transport layer underneath voice discovery and audio-packet sending.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -346,6 +362,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-UDP-MOCK-SET-RESPONSE.
+       *> JP: UDP socket の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: voice discovery や音声 packet 送信の土台になる最小 transport 層です。
+       *> EN: Helpers for UDP open/send/recv/close plus fixture support.
+       *> EN: It is the minimal transport layer underneath voice discovery and audio-packet sending.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -404,6 +424,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-UDP-MOCK-GET-LAST-REQUEST.
+       *> JP: UDP socket の open/send/recv/close と fixture 支援をまとめた helper 群です。
+       *> JP: voice discovery や音声 packet 送信の土台になる最小 transport 層です。
+       *> EN: Helpers for UDP open/send/recv/close plus fixture support.
+       *> EN: It is the minimal transport layer underneath voice discovery and audio-packet sending.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

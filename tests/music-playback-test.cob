@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. MUSIC-PLAYBACK-TEST.
+       *> JP: music playback tick と track 進行の挙動を検証するテストです。
+       *> JP: 再生開始条件、EOF、state 更新の流れが崩れていないかを見ます。
+       *> EN: Test that verifies music-playback ticks and track progression.
+       *> EN: It checks start conditions, EOF handling, and state updates across playback.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

@@ -5,7 +5,7 @@
 `discord.cob` is an experimental open source framework for building Discord bots in COBOL.
 Its long-term target is deliberately ambitious: a Discord Gateway, Voice, and music bot stack implemented in COBOL, while presenting a simple callable API to bot authors.
 
-This repository is currently in a pre-alpha stage. The parser, codec, queue, packet-building, and initial playback layers are already working; live Gateway and Voice session connectivity, negotiated voice encryption, interaction parsing/reply flow, and queue-backed command routing are in place, and the remaining work is now mostly around command registration, richer bot ergonomics, and deeper end-to-end playback.
+This repository is currently in a pre-alpha stage. The parser, codec, queue, packet-building, and initial playback layers are already working; live Gateway and Voice session connectivity, negotiated voice encryption, interaction parsing/reply flow, and queue-backed command routing are in place, and the remaining work is now mostly around higher-level bot ergonomics, richer response builders, and deeper end-to-end playback.
 
 ## Project Vision
 
@@ -25,7 +25,7 @@ Implemented today:
 - JSON validation and JSON path extraction for Discord-style payloads
 - In-memory TCP/TLS transport fixtures and handle management
 - OS-backed TCP/TLS transport through spawned `nc` / `openssl s_client` processes
-- HTTP response parsing, header lookup, basic chunked transfer decoding, and mock-backed high-level requests
+- HTTP response parsing, header lookup, basic chunked transfer decoding, and mock-backed high-level GET/POST/PUT/PATCH/DELETE requests
 - WebSocket frame encode/decode, masked client/server frame handling, in-memory session flow, and opt-in live TLS-backed session flow
 - Live Discord Gateway connect/login plus a minimal recv/apply/send event-loop tick with heartbeat scheduling
 - Live Voice Gateway connect plus a minimal recv/apply/queue/send voice tick with heartbeat scheduling
@@ -37,12 +37,12 @@ Implemented today:
 - Opus silence frame generation
 - Music queue primitives, track helpers, and a queue-backed playback tick for raw/local voice tests
 - Slash-command routing for `/join`, `/leave`, `/play`, `/skip`, `/stop`, and `/queue`
-- Interaction JSON parsing, immediate reply payload building, callback request sending, and registerable dispatcher-backed interaction handlers
+- Slash-command registration, listing, deletion, and bulk overwrite over HTTP, including music command bootstrap helpers
+- Interaction JSON parsing for slash commands, components, and modal submits; custom command/component/modal routing; immediate/update/modal/deferred/follow-up reply helpers; follow-up and original response edit/delete helpers; and registerable dispatcher-backed interaction handlers
 
 In progress or not implemented yet:
 
 - Gateway reconnect lifecycle and stale-heartbeat handling
-- Slash-command registration through HTTP
 - Full encrypted voice playback and music bot workflows
 
 ## What This Repository Is
@@ -136,6 +136,10 @@ Current test executables:
 - `gateway-test`
 - `voice-test`
 - `rtp-test`
+- `crypto-test`
+- `command-router-test`
+- `interaction-test`
+- `slash-command-test`
 - `opus-test`
 - `music-queue-test`
 - `music-playback-test`
@@ -171,7 +175,7 @@ Near-term priorities:
 
 1. Gateway reconnect and stale-heartbeat handling
 2. Encrypted voice packet groundwork
-3. Slash command and playback workflow expansion
+3. Embed-safe interaction builders and richer command-sync ergonomics
 4. End-to-end encrypted playback workflow
 5. Higher-level bot examples around music playback
 

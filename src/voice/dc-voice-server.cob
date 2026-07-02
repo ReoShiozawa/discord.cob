@@ -16,6 +16,10 @@
            DC-VOICE-SESSION
            DC-RESULT.
 	       MAIN.
+      *> JP: VOICE_SERVER_UPDATE からは token と endpoint を受け取ります。
+      *> EN: VOICE_SERVER_UPDATE contributes the token and endpoint.
+      *> JP: session_id が先に揃っていれば、この時点で Voice Gateway identify を要求できます。
+      *> EN: If session_id is already present, this is enough to request Voice Gateway identify.
 	           MOVE "$.d.token" TO WS-PATH
 	           CALL "DC-JSON-GET-STRING"
 	               USING DC-VOICE-JSON WS-PATH WS-TEXT DC-RESULT

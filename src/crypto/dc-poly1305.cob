@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-POLY1305-TAG.
+       *> JP: Poly1305 tag 計算の低レベル helper です。
+       *> JP: AEAD 処理の認証部分を単独の program として切り出しています。
+       *> EN: Low-level helper for computing Poly1305 tags.
+       *> EN: It isolates the authentication step used by the broader AEAD flow.
 
        DATA DIVISION.
        LINKAGE SECTION.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-RTP-ADVANCE.
+       *> JP: RTP state の進行と完成 packet 合成を担う helper 群です。
+       *> JP: header 構築と payload 結合の境界をここに置いています。
+       *> EN: Helpers that advance RTP state and assemble complete RTP packets.
+       *> EN: This file marks the boundary between header construction and payload concatenation.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -19,6 +23,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-RTP-BUILD-PACKET.
+       *> JP: RTP state の進行と完成 packet 合成を担う helper 群です。
+       *> JP: header 構築と payload 結合の境界をここに置いています。
+       *> EN: Helpers that advance RTP state and assemble complete RTP packets.
+       *> EN: This file marks the boundary between header construction and payload concatenation.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

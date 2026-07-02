@@ -23,6 +23,10 @@
 
        PROCEDURE DIVISION USING DC-CLIENT DC-RESULT.
        MAIN.
+      *> JP: Gateway の 1 tick は recv -> handle/dispatch -> heartbeat poll -> send の順です。
+      *> EN: One Gateway tick runs in the order recv -> handle/dispatch -> heartbeat poll -> send.
+      *> JP: client 本体には固定長 state だけを置き、WebSocket session は毎 tick load/save します。
+      *> EN: The client stores only fixed-width state, so the WebSocket session is load/saved each tick.
            IF DC-CLIENT-GW-WS-OPEN-FLAG NOT = 1
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_GATEWAY" TO DC-ERROR-CODE
@@ -51,6 +55,8 @@
                      DC-WS-FRAME
                      WS-RECV-RESULT
            IF WS-RECV-STATUS-CODE = DC-STATUS-OK
+      *> JP: 受信できたら、まず session バッファの更新を client へ反映します。
+      *> EN: After a successful recv, persist the updated session buffers back into client state.
                CALL "DC-GATEWAY-SESSION-SAVE"
                    USING DC-CLIENT
                          DC-WS-SESSION
@@ -59,12 +65,14 @@
                    GOBACK
                END-IF
 
-               EVALUATE DC-WS-OPCODE
-                   WHEN 1
-                       IF DC-WS-PAYLOAD-LENGTH > 0
-                           MOVE DC-WS-PAYLOAD(1:DC-WS-PAYLOAD-LENGTH)
-                               TO WS-GATEWAY-JSON(1:DC-WS-PAYLOAD-LENGTH)
-                       END-IF
+                EVALUATE DC-WS-OPCODE
+                    WHEN 1
+      *> JP: text frame は Gateway payload として解釈し、必要なら event dispatch まで進めます。
+      *> EN: Text frames are interpreted as Gateway payloads and may flow into event dispatch.
+                        IF DC-WS-PAYLOAD-LENGTH > 0
+                            MOVE DC-WS-PAYLOAD(1:DC-WS-PAYLOAD-LENGTH)
+                                TO WS-GATEWAY-JSON(1:DC-WS-PAYLOAD-LENGTH)
+                        END-IF
                        CALL "DC-GATEWAY-HANDLE-PAYLOAD"
                            USING DC-CLIENT
                                  WS-GATEWAY-JSON
@@ -91,10 +99,12 @@
                                GOBACK
                            END-IF
                        END-IF
-                   WHEN 8
-                       CALL "DC-CLIENT-DISCONNECT"
-                           USING DC-CLIENT
-                                 DC-RESULT
+                    WHEN 8
+      *> JP: close frame を受けたら client 側の Gateway state も切断状態へ戻します。
+      *> EN: A close frame also tears down the client-side Gateway state.
+                        CALL "DC-CLIENT-DISCONNECT"
+                            USING DC-CLIENT
+                                  DC-RESULT
                        GOBACK
                END-EVALUATE
            ELSE
@@ -157,6 +167,8 @@
 
            IF FUNCTION TRIM(WS-GATEWAY-ACTION) NOT = SPACES
               AND FUNCTION TRIM(WS-GATEWAY-PAYLOAD) NOT = SPACES
+      *> JP: 次に送る payload は identify/resume/heartbeat/queued command のどれかです。
+      *> EN: The next outbound payload is one of identify/resume/heartbeat/queued command.
                CALL "DC-WS-SEND-TEXT"
                    USING DC-WS-SESSION
                          WS-GATEWAY-PAYLOAD

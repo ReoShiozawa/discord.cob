@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. COMMAND-ROUTER-TEST.
+       *> JP: command router の登録・探索・フォールバック挙動を検証するテストです。
+       *> JP: slash / component / modal の各分岐が期待通り handler を選ぶかを確認します。
+       *> EN: Test that verifies command-router registration, lookup, and fallback behavior.
+       *> EN: It checks that slash, component, and modal branches pick the expected handlers.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

@@ -15,6 +15,8 @@
 
        PROCEDURE DIVISION USING DC-CLIENT DC-VOICE-SESSION DC-RESULT.
        MAIN.
+      *> JP: Voice Gateway への WS 接続を開く高水準入口です。
+      *> EN: High-level entry point for opening the Voice Gateway WebSocket connection.
            IF FUNCTION TRIM(DC-VS-ENDPOINT) = SPACES
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_VOICE_GATEWAY" TO DC-ERROR-CODE
@@ -80,6 +82,10 @@
 
        PROCEDURE DIVISION USING DC-VOICE-SESSION DC-RESULT.
        MAIN.
+      *> JP: Voice session を完全に初期化し直します。
+      *> EN: Fully tear down and reset the voice session.
+      *> JP: ここは WS/TLS と UDP の両方を閉じるので、再接続前の共通出口でもあります。
+      *> EN: This closes both WS/TLS and UDP, so it also serves as the common exit before reconnect.
            IF DC-VS-WS-LIVE-FLAG = 1
               AND DC-VS-WS-HANDLE > 0
                CALL "DC-TLS-CLOSE"
@@ -152,6 +158,8 @@
            DC-WS-SESSION
            DC-RESULT.
        MAIN.
+      *> JP: 固定長 voice state から送受信用 WS session を復元します。
+      *> EN: Restore a working WS session from fixed-width voice state.
            INITIALIZE DC-WS-SESSION
            MOVE DC-VS-WS-HANDLE TO DC-WS-HANDLE
            MOVE DC-VS-WS-OPEN-FLAG TO DC-WS-OPEN-FLAG
@@ -192,6 +200,8 @@
            DC-WS-SESSION
            DC-RESULT.
        MAIN.
+      *> JP: recv/send で更新された WS session を voice state 側へ退避します。
+      *> EN: Persist the updated WS session back into voice state after recv/send work.
            MOVE DC-WS-HANDLE TO DC-VS-WS-HANDLE
            MOVE DC-WS-OPEN-FLAG TO DC-VS-WS-OPEN-FLAG
            MOVE DC-WS-LAST-OPCODE TO DC-VS-WS-LAST-OPCODE
@@ -236,6 +246,8 @@
            DC-WS-REQUEST
            DC-RESULT.
        MAIN.
+      *> JP: Voice endpoint から Voice WS URL を作り、host/path と sec key を整えます。
+      *> EN: Build the Voice WS URL from the endpoint, then derive host/path and sec key.
            INITIALIZE DC-WS-REQUEST
            IF FUNCTION TRIM(DC-VS-ENDPOINT) = SPACES
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
@@ -295,6 +307,10 @@
            DC-VOICE-PAYLOAD-OUT
            DC-RESULT.
        MAIN.
+      *> JP: Voice control payload の優先順は RESUME -> IDENTIFY -> HEARTBEAT -> queued command です。
+      *> EN: Voice control payload priority is RESUME -> IDENTIFY -> HEARTBEAT -> queued command.
+      *> JP: 1 tick で返すのは最大 1 件に抑え、順序を明確にします。
+      *> EN: At most one payload is emitted per tick so ordering stays explicit.
            MOVE SPACES TO DC-VOICE-ACTION-OUT
            MOVE SPACES TO DC-VOICE-PAYLOAD-OUT
 
@@ -342,6 +358,8 @@
            END-IF
 
            IF DC-VS-COMMAND-QUEUED = 1
+      *> JP: queued command は最後に流し、identify/heartbeat を先に消化します。
+      *> EN: Queued commands are emitted last so identify/heartbeat can win first.
                MOVE DC-VS-COMMAND-NAME TO DC-VOICE-ACTION-OUT
                MOVE DC-VS-COMMAND-PAYLOAD TO DC-VOICE-PAYLOAD-OUT
                MOVE 0 TO DC-VS-COMMAND-QUEUED
@@ -371,6 +389,8 @@
            DC-VOICE-PAYLOAD-IN
            DC-RESULT.
        MAIN.
+      *> JP: Voice Gateway 側も outbound queue は 1 スロットだけです。
+      *> EN: The Voice Gateway outbound queue is also a single-slot queue.
            IF FUNCTION TRIM(DC-VOICE-ACTION-IN) = SPACES
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_VOICE_GATEWAY_QUEUE" TO DC-ERROR-CODE
@@ -416,6 +436,8 @@
            DC-VOICE-IDENTIFY-PAYLOAD
            DC-RESULT.
        MAIN.
+      *> JP: Voice identify(op=0) は Gateway とは別仕様なので専用 builder に分けています。
+      *> EN: Voice identify (op=0) has a different wire shape from Gateway identify, so it has its own builder.
            MOVE SPACES TO DC-VOICE-IDENTIFY-PAYLOAD
            STRING
                "{"
@@ -487,6 +509,8 @@
            DC-VOICE-SELECT-PROTOCOL-PAYLOAD
            DC-RESULT.
        MAIN.
+      *> JP: UDP discovery で得た address/port と encryption mode を select-protocol(op=1) に変換します。
+      *> EN: Convert discovered address/port and encryption mode into a select-protocol payload (op=1).
            MOVE DC-SP-PORT TO WS-PORT-TEXT
            MOVE SPACES TO DC-VOICE-SELECT-PROTOCOL-PAYLOAD
            STRING

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-JSON-TOKENIZE.
+       *> JP: JSON 文字列を token 列へ分解する低レベル helper です。
+       *> JP: parser や path helper が前提にする字句単位をここで作ります。
+       *> EN: Low-level helper that tokenizes JSON text.
+       *> EN: It produces the lexical units assumed by the parser and path helpers.
 
        DATA DIVISION.
        LINKAGE SECTION.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. EXAMPLE-HTTP-PARSE.
+       *> JP: HTTP parser/helper を単体で触れる小さな example です。
+       *> JP: Discord 通信本体に入る前に request/response 契約を読む助けになります。
+       *> EN: Small example for exercising the HTTP parser/helpers in isolation.
+       *> EN: It helps readers inspect request/response contracts before stepping into full Discord traffic.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

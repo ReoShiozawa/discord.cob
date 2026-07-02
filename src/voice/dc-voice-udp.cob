@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-UDP-DISCOVERY-BUILD.
+       *> JP: Voice UDP discovery、session load/save、packet send をまとめた helper 群です。
+       *> JP: WebSocket で決まった voice state を実際の UDP media transport へ橋渡しします。
+       *> EN: Helpers for Voice UDP discovery, session load/save, and packet sending.
+       *> EN: They bridge Voice state decided over WebSocket into the actual UDP media transport.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -34,6 +38,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-UDP-DISCOVERY-PARSE.
+       *> JP: Voice UDP discovery、session load/save、packet send をまとめた helper 群です。
+       *> JP: WebSocket で決まった voice state を実際の UDP media transport へ橋渡しします。
+       *> EN: Helpers for Voice UDP discovery, session load/save, and packet sending.
+       *> EN: They bridge Voice state decided over WebSocket into the actual UDP media transport.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -82,6 +90,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-UDP-DISCOVERY-APPLY.
+       *> JP: Voice UDP discovery、session load/save、packet send をまとめた helper 群です。
+       *> JP: WebSocket で決まった voice state を実際の UDP media transport へ橋渡しします。
+       *> EN: Helpers for Voice UDP discovery, session load/save, and packet sending.
+       *> EN: They bridge Voice state decided over WebSocket into the actual UDP media transport.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -150,6 +162,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-UDP-SESSION-LOAD.
+       *> JP: Voice UDP discovery、session load/save、packet send をまとめた helper 群です。
+       *> JP: WebSocket で決まった voice state を実際の UDP media transport へ橋渡しします。
+       *> EN: Helpers for Voice UDP discovery, session load/save, and packet sending.
+       *> EN: They bridge Voice state decided over WebSocket into the actual UDP media transport.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -175,6 +191,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-UDP-SESSION-SAVE.
+       *> JP: Voice UDP discovery、session load/save、packet send をまとめた helper 群です。
+       *> JP: WebSocket で決まった voice state を実際の UDP media transport へ橋渡しします。
+       *> EN: Helpers for Voice UDP discovery, session load/save, and packet sending.
+       *> EN: They bridge Voice state decided over WebSocket into the actual UDP media transport.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -197,6 +217,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-UDP-DISCOVER.
+       *> JP: Voice UDP discovery、session load/save、packet send をまとめた helper 群です。
+       *> JP: WebSocket で決まった voice state を実際の UDP media transport へ橋渡しします。
+       *> EN: Helpers for Voice UDP discovery, session load/save, and packet sending.
+       *> EN: They bridge Voice state decided over WebSocket into the actual UDP media transport.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -303,6 +327,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-SEND-FRAME.
+       *> JP: Voice UDP discovery、session load/save、packet send をまとめた helper 群です。
+       *> JP: WebSocket で決まった voice state を実際の UDP media transport へ橋渡しします。
+       *> EN: Helpers for Voice UDP discovery, session load/save, and packet sending.
+       *> EN: They bridge Voice state decided over WebSocket into the actual UDP media transport.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

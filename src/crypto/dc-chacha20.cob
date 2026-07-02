@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-CHACHA20-BLOCK.
+       *> JP: ChaCha20 block 生成の低レベル helper です。
+       *> JP: 上位の voice 暗号化 helper から使われる基礎プリミティブとして置かれています。
+       *> EN: Low-level helper for generating ChaCha20 blocks.
+       *> EN: It exists as a primitive that higher-level voice-encryption helpers build on.
 
        DATA DIVISION.
        LINKAGE SECTION.

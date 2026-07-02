@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. MUSIC-QUEUE-TEST.
+       *> JP: music queue の push/pop/順序保持を検証するテストです。
+       *> JP: 固定長 queue としての基礎動作を contributor が安心して触れるようにします。
+       *> EN: Test that verifies music-queue push/pop behavior and ordering.
+       *> EN: It keeps the fixed-size queue fundamentals stable for contributors touching this area.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

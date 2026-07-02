@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-IDENTIFY-BUILD.
+       *> JP: Gateway identify payload を組み立てる helper です。
+       *> JP: token、intents、properties など login 直後に必要な契約をここへ閉じ込めます。
+       *> EN: Helper that builds Gateway identify payloads.
+       *> EN: It encapsulates the token, intents, and identify properties needed right after login.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-RTP-TIMESTAMP-ADVANCE.
+       *> JP: RTP timestamp を frame samples 分だけ進める helper です。
+       *> JP: audio clock と transport clock の接点を小さな API に閉じ込めます。
+       *> EN: Helper that advances the RTP timestamp by one frame-sample step.
+       *> EN: It keeps the contact point between the audio clock and transport clock small and explicit.
 
        DATA DIVISION.
        LINKAGE SECTION.

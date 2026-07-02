@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-WS-GENERATE-KEY.
+       *> JP: WebSocket handshake に必要な key、request、accept 検証 helper 群です。
+       *> JP: 接続直後の HTTP upgrade 契約を 1 箇所で扱えるようにしています。
+       *> EN: Helpers for WebSocket-handshake keys, requests, and accept validation.
+       *> EN: They centralize the HTTP upgrade contract required right after connection setup.
 
 	       DATA DIVISION.
 	       WORKING-STORAGE SECTION.
@@ -43,6 +47,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-WS-BUILD-HANDSHAKE-REQUEST.
+       *> JP: WebSocket handshake に必要な key、request、accept 検証 helper 群です。
+       *> JP: 接続直後の HTTP upgrade 契約を 1 箇所で扱えるようにしています。
+       *> EN: Helpers for WebSocket-handshake keys, requests, and accept validation.
+       *> EN: They centralize the HTTP upgrade contract required right after connection setup.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -129,6 +137,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-WS-BUILD-ACCEPT.
+       *> JP: WebSocket handshake に必要な key、request、accept 検証 helper 群です。
+       *> JP: 接続直後の HTTP upgrade 契約を 1 箇所で扱えるようにしています。
+       *> EN: Helpers for WebSocket-handshake keys, requests, and accept validation.
+       *> EN: They centralize the HTTP upgrade contract required right after connection setup.
 
        DATA DIVISION.
 	       WORKING-STORAGE SECTION.
@@ -179,6 +191,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-WS-VALIDATE-HS-RESPONSE.
+       *> JP: WebSocket handshake に必要な key、request、accept 検証 helper 群です。
+       *> JP: 接続直後の HTTP upgrade 契約を 1 箇所で扱えるようにしています。
+       *> EN: Helpers for WebSocket-handshake keys, requests, and accept validation.
+       *> EN: They centralize the HTTP upgrade contract required right after connection setup.
 
 	       DATA DIVISION.
 	       WORKING-STORAGE SECTION.
@@ -269,6 +285,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-BASE64-ENCODE.
+       *> JP: WebSocket handshake に必要な key、request、accept 検証 helper 群です。
+       *> JP: 接続直後の HTTP upgrade 契約を 1 箇所で扱えるようにしています。
+       *> EN: Helpers for WebSocket-handshake keys, requests, and accept validation.
+       *> EN: They centralize the HTTP upgrade contract required right after connection setup.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -364,6 +384,10 @@
 
 	       IDENTIFICATION DIVISION.
 	       PROGRAM-ID. DC-SHA1-DIGEST.
+       *> JP: WebSocket handshake に必要な key、request、accept 検証 helper 群です。
+       *> JP: 接続直後の HTTP upgrade 契約を 1 箇所で扱えるようにしています。
+       *> EN: Helpers for WebSocket-handshake keys, requests, and accept validation.
+       *> EN: They centralize the HTTP upgrade contract required right after connection setup.
 
 	       DATA DIVISION.
 	       WORKING-STORAGE SECTION.

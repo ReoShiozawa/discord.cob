@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-OPUS-OPEN.
+       *> JP: Opus source を開き、frame 単位で読み、閉じる高水準 reader API 群です。
+       *> JP: playback 層は container 差分を意識せずこの API 面を使います。
+       *> EN: High-level reader APIs that open an Opus source, read frames, and close it.
+       *> EN: The playback layer can use this surface without caring about container-specific details.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -20,6 +24,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-OPUS-READ-FRAME.
+       *> JP: Opus source を開き、frame 単位で読み、閉じる高水準 reader API 群です。
+       *> JP: playback 層は container 差分を意識せずこの API 面を使います。
+       *> EN: High-level reader APIs that open an Opus source, read frames, and close it.
+       *> EN: The playback layer can use this surface without caring about container-specific details.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -40,6 +48,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-OPUS-CLOSE.
+       *> JP: Opus source を開き、frame 単位で読み、閉じる高水準 reader API 群です。
+       *> JP: playback 層は container 差分を意識せずこの API 面を使います。
+       *> EN: High-level reader APIs that open an Opus source, read frames, and close it.
+       *> EN: The playback layer can use this surface without caring about container-specific details.
 
        DATA DIVISION.
        LINKAGE SECTION.

@@ -123,6 +123,11 @@ CALL "DC-HTTP-POST"
           DC-HTTP-RESPONSE
           DC-RESULT.
 
+CALL "DC-HTTP-PUT"
+    USING DC-HTTP-REQUEST
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
 CALL "DC-HTTP-PARSE-RESPONSE"
     USING RAW-RESPONSE
           DC-HTTP-RESPONSE
@@ -135,7 +140,7 @@ CALL "DC-HTTP-GET-HEADER"
           DC-RESULT.
 ```
 
-`Content-Length`, basic `Transfer-Encoding: chunked` bodies, raw request generation, fixture-driven TLS execution, and live TLS-backed request execution are supported.
+`Content-Length`, basic `Transfer-Encoding: chunked` bodies, raw request generation, fixture-driven TLS execution, and live TLS-backed GET/POST/PUT/PATCH/DELETE execution are supported.
 
 ## TCP / TLS
 
@@ -478,6 +483,132 @@ CALL "DC-INTERACTION-CALLBACK-BUILD"
           DC-HTTP-REQUEST
           DC-RESULT.
 
+CALL "DC-INTERACTION-BUILD-DEFERRED"
+    USING REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-INTERACTION-BUILD-UPDATE"
+    USING REPLY-CONTENT
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-INTERACTION-BUILD-COMPONENT"
+    USING REPLY-CONTENT
+          COMPONENTS-JSON
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-INTERACTION-BUILD-MODAL"
+    USING CUSTOM-ID
+          TITLE
+          COMPONENTS-JSON
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-INTERACTION-DEFER"
+    USING DC-INTERACTION
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-BUILD-FOLLOWUP"
+    USING REPLY-CONTENT
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FOLLOWUP-BUILD"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FOLLOWUP"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-EDIT-BUILD"
+    USING DC-CLIENT
+          DC-INTERACTION
+          MESSAGE-ID
+          REPLY-PAYLOAD
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-EDIT"
+    USING DC-CLIENT
+          DC-INTERACTION
+          MESSAGE-ID
+          REPLY-PAYLOAD
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-DEL-BUILD"
+    USING DC-CLIENT
+          DC-INTERACTION
+          MESSAGE-ID
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-DEL"
+    USING DC-CLIENT
+          DC-INTERACTION
+          MESSAGE-ID
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-ORIG-EDIT-BUILD"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-INTERACTION-ORIG-EDIT"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-ORIG-DEL-BUILD"
+    USING DC-CLIENT
+          DC-INTERACTION
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-INTERACTION-ORIG-DEL"
+    USING DC-CLIENT
+          DC-INTERACTION
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-ON-COMMAND"
+    USING DC-CLIENT
+          COMMAND-NAME
+          HANDLER-PROGRAM
+          DC-RESULT.
+
+CALL "DC-INTERACTION-ON-COMPONENT"
+    USING DC-CLIENT
+          CUSTOM-ID
+          HANDLER-PROGRAM
+          DC-RESULT.
+
+CALL "DC-INTERACTION-ON-MODAL"
+    USING DC-CLIENT
+          CUSTOM-ID
+          HANDLER-PROGRAM
+          DC-RESULT.
+
+CALL "DC-INTERACTION-DISPATCH"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
+          DC-RESULT.
+
 CALL "DC-INTERACTION-REGISTER"
     USING DC-CLIENT
           DC-RESULT.
@@ -486,10 +617,88 @@ CALL "DC-INTERACTION-REGISTER"
 Current coverage:
 
 - raw and wrapped `INTERACTION_CREATE` JSON parsing
+- application command, component, and modal-submit field extraction
+- custom command, component, and modal handler registration plus dispatch
 - slash-command routing into `/join`, `/leave`, `/play`, `/skip`, `/stop`, and `/queue`
-- immediate type-4 reply payload construction
-- callback HTTP request building and POST execution
+- immediate, update, modal, ephemeral, and deferred response payload construction
+- callback, follow-up create/edit/delete, and original-response edit/delete HTTP helpers
+- component select and modal input value lookup helpers
 - dispatcher-friendly handler registration through `DC-INTERACTION-REGISTER`
+
+## Slash Command Registration
+
+```cobol
+CALL "DC-SLASH-COMMAND-BUILD-REQUEST"
+    USING DC-CLIENT
+          GUILD-ID
+          COMMAND-JSON
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-SLASH-COMMAND-REGISTER"
+    USING DC-CLIENT
+          GUILD-ID
+          COMMAND-JSON
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-SLASH-COMMAND-BUILD-LIST"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-SLASH-COMMAND-LIST"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-SLASH-COMMAND-BUILD-DELETE"
+    USING DC-CLIENT
+          GUILD-ID
+          COMMAND-ID
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-SLASH-COMMAND-DELETE"
+    USING DC-CLIENT
+          GUILD-ID
+          COMMAND-ID
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-SLASH-COMMAND-BUILD-SET"
+    USING DC-CLIENT
+          GUILD-ID
+          COMMANDS-JSON
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-SLASH-COMMAND-OVERWRITE"
+    USING DC-CLIENT
+          GUILD-ID
+          COMMANDS-JSON
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-MUSIC-COMMANDS-REGISTER"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+
+CALL "DC-MUSIC-COMMANDS-OVERWRITE"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+```
+
+Current coverage:
+
+- global or guild-scoped command registration, listing, deletion, and bulk overwrite over REST
+- request building with bot authorization and versioned Discord paths
+- built-in bootstrap registration and bulk overwrite helpers for `/join`, `/leave`, `/play`, `/skip`, `/stop`, and `/queue`
+- mock-backed slash-command REST tests through the shared TLS/HTTP transport
 
 ## Music Queue
 
@@ -552,5 +761,5 @@ Current coverage:
 Current limitations:
 
 - live Discord playback still stops at negotiated voice encryption
-- slash-command registration through HTTP is still partial
-- deferred replies, followups, and component/modal interaction flows are not implemented yet
+- higher-level JSON-safe reply composition for embeds/components still needs builder sugar
+- follow-up retrieval / wait-mode helpers are not implemented yet

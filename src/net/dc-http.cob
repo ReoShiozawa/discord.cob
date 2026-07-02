@@ -12,6 +12,9 @@
            DC-HTTP-RESPONSE
            DC-RESULT.
        MAIN.
+           *> JP: 互換 API として status parser 名を残しつつ、本体は完全な response parser に委譲します。
+           *> EN: This keeps the older status-parser entry point for compatibility
+           *> EN: while delegating all real work to the full response parser.
            CALL "DC-HTTP-PARSE-RESPONSE"
                USING DC-HTTP-RAW-RESPONSE
                      DC-HTTP-RESPONSE
@@ -47,6 +50,15 @@
            DC-HTTP-RESPONSE
            DC-RESULT.
        MAIN.
+           *> JP: 受信済みの raw HTTP/1.1 応答を
+           *> JP: status line / header block / decoded body に分解する中心 helper です。
+           *> EN: This is the central helper that splits a received raw HTTP/1.1
+           *> EN: response into status line, header block, and decoded body.
+           *>
+           *> JP: Content-Length と chunked transfer encoding の両方を扱いますが、
+           *> JP: あくまで 8KB 固定長バッファ内で完結する軽量 parser です。
+           *> EN: It supports both Content-Length and chunked transfer encoding,
+           *> EN: but remains a lightweight parser bounded by the fixed 8KB buffers.
            INITIALIZE DC-HTTP-RESPONSE
            MOVE SPACES TO WS-CONTENT-LENGTH-TEXT
            MOVE SPACES TO WS-TRANSFER-ENCODING
@@ -134,6 +146,9 @@
            GOBACK.
 
        FIND-RAW-LENGTH.
+           *> JP: 末尾空白を落として、実際に受信済みの長さだけを対象にします。
+           *> EN: Trim trailing space so later parsing only considers bytes that
+           *> EN: were actually received.
            MOVE 8192 TO WS-RAW-LEN
            PERFORM UNTIL WS-RAW-LEN = 0
                OR DC-HTTP-RAW-RESPONSE(WS-RAW-LEN:1) NOT = SPACE
@@ -141,6 +156,8 @@
            END-PERFORM.
 
        FIND-HEADER-SEPARATOR.
+           *> JP: header/body 境界の CRLF CRLF を線形探索します。
+           *> EN: Perform a linear scan for the CRLF-CRLF header/body separator.
            MOVE 0 TO WS-SEP-POS
            PERFORM VARYING WS-IDX FROM 1 BY 1
                UNTIL WS-IDX > WS-RAW-LEN - 3
@@ -180,6 +197,10 @@
            DC-HTTP-HEADER-VALUE-OUT
            DC-RESULT.
        MAIN.
+           *> JP: header 名は大文字小文字を無視して比較します。
+           *> JP: 先頭行(status line)は colon を持たないので自然に読み飛ばされます。
+           *> EN: Header names are compared case-insensitively. The first status
+           *> EN: line naturally falls through because it does not contain a colon.
            MOVE SPACES TO DC-HTTP-HEADER-VALUE-OUT
            MOVE SPACES TO WS-TARGET-NAME
            MOVE LENGTH OF DC-HTTP-RAW-HEADERS-IN TO WS-HEADER-LEN
@@ -288,6 +309,17 @@
            DC-HTTP-DECODED-BODY-LENGTH
            DC-RESULT.
        MAIN.
+           *> JP: chunked body は
+           *> JP: `[hex-size]\r\n[data]\r\n ... 0\r\n\r\n` を順に読みほどいて
+           *> JP: 連続 body に畳み込みます。
+           *> EN: A chunked body is decoded by walking
+           *> EN: `[hex-size]\\r\\n[data]\\r\\n ... 0\\r\\n\\r\\n` and folding each
+           *> EN: chunk into one contiguous body buffer.
+           *>
+           *> JP: chunk extension や trailer の高度な解釈は行わず、
+           *> JP: Discord API で必要な最小限に絞っています。
+           *> EN: It intentionally skips advanced handling like chunk extensions
+           *> EN: or trailers and focuses on the subset needed for Discord traffic.
            MOVE SPACES TO DC-HTTP-DECODED-BODY-OUT
            MOVE 0 TO DC-HTTP-DECODED-BODY-LENGTH
 
@@ -363,6 +395,8 @@
            GOBACK.
 
        PARSE-HEX-SIZE.
+           *> JP: size 行を 16 進数として手で畳み込みます。
+           *> EN: Fold the size line manually as hexadecimal digits.
            MOVE 0 TO WS-CHUNK-SIZE
            PERFORM VARYING WS-IDX FROM 1 BY 1
                UNTIL WS-IDX > WS-SIZE-TEXT-LEN
@@ -416,6 +450,14 @@
            DC-HTTP-BUFFER
            DC-RESULT.
        MAIN.
+           *> JP: 固定長の request 構造を wire format の HTTP/1.1 文字列へ変換します。
+           *> EN: This converts the fixed-size request structure into an HTTP/1.1
+           *> EN: wire-format string.
+           *>
+           *> JP: header は Host / Authorization / Content-Type / Content-Length
+           *> JP: の最小集合だけを扱い、必要ない行は出力しません。
+           *> EN: It emits only the minimal header set used here: Host,
+           *> EN: Authorization, Content-Type, and Content-Length.
            MOVE SPACES TO DC-HTTP-BUFFER-DATA
            MOVE 0 TO DC-HTTP-BUFFER-LENGTH
            MOVE SPACES TO WS-REQUEST-LINE
@@ -702,6 +744,30 @@
                      DC-RESULT
            GOBACK.
        END PROGRAM DC-HTTP-PATCH.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-HTTP-PUT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-METHOD PIC X(8) VALUE "PUT".
+
+       LINKAGE SECTION.
+       COPY "discord-net.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-HTTP-REQUEST
+           DC-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+           CALL "DC-HTTP-EXECUTE"
+               USING DC-HTTP-REQUEST
+                     DC-HTTP-RESPONSE
+                     WS-METHOD
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-HTTP-PUT.
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-HTTP-DELETE.

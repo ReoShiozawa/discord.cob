@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-OGG-OPUS-OPEN.
+       *> JP: Ogg Opus ファイルを開き、1 frame ずつ読み、閉じる reader helper 群です。
+       *> JP: file container 側の段取りを music playback から切り離す役割があります。
+       *> EN: Reader helpers that open Ogg Opus files, read one frame at a time, and close them.
+       *> EN: They separate container-level file handling from the higher-level music playback flow.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -153,6 +157,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-OGG-OPUS-READ-FRAME.
+       *> JP: Ogg Opus ファイルを開き、1 frame ずつ読み、閉じる reader helper 群です。
+       *> JP: file container 側の段取りを music playback から切り離す役割があります。
+       *> EN: Reader helpers that open Ogg Opus files, read one frame at a time, and close them.
+       *> EN: They separate container-level file handling from the higher-level music playback flow.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -373,6 +381,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-OGG-OPUS-CLOSE.
+       *> JP: Ogg Opus ファイルを開き、1 frame ずつ読み、閉じる reader helper 群です。
+       *> JP: file container 側の段取りを music playback から切り離す役割があります。
+       *> EN: Reader helpers that open Ogg Opus files, read one frame at a time, and close them.
+       *> EN: They separate container-level file handling from the higher-level music playback flow.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

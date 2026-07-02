@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-JSON-LOCATE-PATH.
+       *> JP: JSON から path 指定で値を抜く helper 群です。
+       *> JP: interaction や gateway parse はここを通じて必要最小限の値だけ拾います。
+       *> EN: Helpers for extracting values from JSON by path.
+       *> EN: Interaction and Gateway parsing use them to pull only the fields they actually need.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -125,6 +129,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-JSON-GET-STRING.
+       *> JP: JSON から path 指定で値を抜く helper 群です。
+       *> JP: interaction や gateway parse はここを通じて必要最小限の値だけ拾います。
+       *> EN: Helpers for extracting values from JSON by path.
+       *> EN: Interaction and Gateway parsing use them to pull only the fields they actually need.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -191,6 +199,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-JSON-GET-NUMBER.
+       *> JP: JSON から path 指定で値を抜く helper 群です。
+       *> JP: interaction や gateway parse はここを通じて必要最小限の値だけ拾います。
+       *> EN: Helpers for extracting values from JSON by path.
+       *> EN: Interaction and Gateway parsing use them to pull only the fields they actually need.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. CRYPTO-TEST.
+       *> JP: voice 暗号化 helper 群の基礎挙動を検証するテストです。
+       *> JP: nonce・tag・encrypted payload の最低限の契約を崩さないことを見ます。
+       *> EN: Test that verifies the core behavior of the voice-encryption helpers.
+       *> EN: It watches the minimal contracts around nonces, tags, and encrypted payloads.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

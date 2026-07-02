@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. VOICE-TEST.
+       *> JP: voice session、UDP discovery、payload builder の主要経路を検証するテストです。
+       *> JP: voice 接続準備の state progression が崩れていないかを見ます。
+       *> EN: Test that verifies the main paths of voice sessions, UDP discovery, and payload builders.
+       *> EN: It checks that voice-connection preparation still progresses through state correctly.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

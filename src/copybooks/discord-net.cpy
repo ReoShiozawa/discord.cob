@@ -1,3 +1,7 @@
+      *> JP: HTTP / WebSocket / UDP の request・response・session 構造をまとめた copybook です。
+      *> JP: transport helper と fixture が同じ wire-level バッファ契約を共有します。
+      *> EN: Copybook for HTTP, WebSocket, and UDP request/response/session structures.
+      *> EN: Transport helpers and fixtures share the same wire-level buffer contract from here.
        01 DC-HTTP-REQUEST.
           05 DC-HTTP-METHOD PIC X(8).
           05 DC-HTTP-HOST PIC X(256).

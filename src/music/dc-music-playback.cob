@@ -63,11 +63,17 @@
            DC-VOICE-SESSION
            DC-RESULT.
        MAIN.
+      *> JP: Music tick は guild 単位の playback state を読み出し、
+      *> JP: 必要なら次トラック開始、再生継続、EOF 後始末までを 1 回分だけ進めます。
+      *> EN: The music tick loads guild-scoped playback state and advances at most one step:
+      *> EN: start next track, continue playback, or clean up after EOF.
            IF FUNCTION TRIM(DC-VS-GUILD-ID) = SPACES
                CALL "DC-RESULT-OK" USING DC-RESULT
                GOBACK
            END-IF
 
+      *> JP: 再生状態は voice session ではなく別の music state に保存しています。
+      *> EN: Playback state lives in separate music storage rather than in the voice session itself.
            CALL "DC-MUSIC-STATE-LOAD"
                USING DC-VS-GUILD-ID
                      WS-MUSIC-QUEUE
@@ -92,6 +98,9 @@
               AND (FUNCTION TRIM(DC-VS-ENCRYPTION-MODE) = SPACES
               OR FUNCTION TRIM(DC-VS-ENCRYPTION-MODE)
                  = "aead_xchacha20_poly1305_rtpsize")
+      *> JP: 再生開始には queue 項目だけでなく、voice ready / UDP ready / 対応暗号モードが必要です。
+      *> EN: Starting playback requires not only queued tracks, but also voice ready, UDP ready,
+      *> EN: and a supported encryption mode.
                PERFORM START-NEXT-TRACK
                IF DC-STATUS-CODE NOT = DC-STATUS-OK
                    GOBACK
@@ -116,6 +125,9 @@
               OR (FUNCTION TRIM(DC-VS-ENCRYPTION-MODE) NOT = SPACES
               AND FUNCTION TRIM(DC-VS-ENCRYPTION-MODE)
                   NOT = "aead_xchacha20_poly1305_rtpsize")
+      *> JP: 再生途中でも transport 条件が崩れたら、その tick では frame を送らず state だけ保存します。
+      *> EN: Even mid-playback, if transport prerequisites are missing we skip frame send for this tick
+      *> EN: and only persist state.
                CALL "DC-MUSIC-STATE-SAVE"
                    USING DC-VS-GUILD-ID
                          WS-MUSIC-QUEUE
@@ -129,11 +141,15 @@
 
            PERFORM QUEUE-SPEAKING
 
+      *> JP: Opus reader から 1 frame だけ読み、tick ごとに 1 frame だけ送る設計です。
+      *> EN: We read at most one Opus frame and send at most one frame per tick.
            CALL "DC-OPUS-READ-FRAME"
                USING WS-OPUS-HANDLE
                      WS-OPUS-FRAME
                      DC-RESULT
            IF DC-STATUS-CODE = DC-STATUS-EOF
+      *> JP: EOF なら player を止め、track 状態を完了にして handle を閉じます。
+      *> EN: On EOF, stop the player, mark the track complete, and close the reader handle.
                MOVE 1 TO WS-PLAYER-EOF-FLAG
                MOVE 0 TO WS-PLAYER-STATE
                MOVE 2 TO WS-CURRENT-TRACK-STATUS
@@ -158,6 +174,8 @@
                GOBACK
            END-IF
            IF DC-STATUS-CODE NOT = DC-STATUS-OK
+      *> JP: 読み取り失敗は track error として保存し、次 tick へ持ち越さないようにします。
+      *> EN: Read failures are persisted as track errors so the tick does not keep retrying blindly.
                MOVE 3 TO WS-CURRENT-TRACK-STATUS
                MOVE 0 TO WS-PLAYER-STATE
                CALL "DC-MUSIC-STATE-SAVE"
@@ -194,6 +212,9 @@
            GOBACK.
 
        START-NEXT-TRACK.
+      *> JP: 次トラック開始では queue pop -> player init -> opus open -> RTP seed の順に初期化します。
+      *> EN: Starting the next track initializes in this order:
+      *> EN: queue pop -> player init -> opus open -> RTP seed.
            INITIALIZE WS-CURRENT-TRACK
            CALL "DC-MUSIC-QUEUE-POP"
                USING WS-MUSIC-QUEUE
@@ -229,6 +250,8 @@
            END-IF
 
            INITIALIZE WS-RTP-STATE
+      *> JP: RTP timestamp の初期値は 1 frame 分先へ進めた値を置きます。
+      *> EN: The initial RTP timestamp is seeded to one frame's worth of samples.
            MOVE 1 TO WS-RTP-SEQUENCE
            COMPUTE WS-RTP-FRAME-SAMPLES =
                (DC-CLIENT-AUDIO-SAMPLE-RATE / 1000)
@@ -240,6 +263,8 @@
            MOVE DC-VS-SSRC TO WS-RTP-SSRC.
 
        QUEUE-SPEAKING.
+      *> JP: speaking 通知は最初の audio frame の前に 1 回だけ queue します。
+      *> EN: The speaking notification is queued once, just before the first audio frame.
            IF WS-PLAYER-FRAME-COUNT NOT = 0
                EXIT PARAGRAPH
            END-IF

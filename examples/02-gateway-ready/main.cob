@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. EXAMPLE-GATEWAY-READY.
+       *> JP: Gateway ready ハンドリングの最小セットを示す example です。
+       *> JP: 接続後に READY event をどう受けるかの雰囲気をつかめます。
+       *> EN: Example that shows a minimal Gateway-ready handling setup.
+       *> EN: It gives a feel for how a READY event is received after connection.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-NONCE-INIT.
+       *> JP: nonce state の初期化と進行をまとめた helper 群です。
+       *> JP: voice packet ごとに一意な nonce 材料を前へ進める役割を持ちます。
+       *> EN: Helpers for initializing and advancing nonce state.
+       *> EN: They move the nonce material forward so each voice packet can use a fresh value.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -16,6 +20,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-NONCE-NEXT.
+       *> JP: nonce state の初期化と進行をまとめた helper 群です。
+       *> JP: voice packet ごとに一意な nonce 材料を前へ進める役割を持ちます。
+       *> EN: Helpers for initializing and advancing nonce state.
+       *> EN: They move the nonce material forward so each voice packet can use a fresh value.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

@@ -14,6 +14,10 @@
 
        PROCEDURE DIVISION USING DC-CLIENT DC-RESULT.
        MAIN.
+      *> JP: Gateway 接続の高水準入口です。
+      *> EN: High-level entry point for opening the Gateway connection.
+      *> JP: URL 取得 -> WS request 構築 -> WS connect -> session save の順で段階的に進めます。
+      *> EN: The flow is URL fetch -> WS request build -> WS connect -> session save.
            IF FUNCTION TRIM(DC-CLIENT-TOKEN) = SPACES
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_GATEWAY" TO DC-ERROR-CODE
@@ -101,6 +105,8 @@
            DC-WS-SESSION
            DC-RESULT.
        MAIN.
+      *> JP: client 側に保存済みの Gateway WS state を、送受信用の session 構造へ戻します。
+      *> EN: Restore persisted Gateway WS state from client storage into a usable session structure.
            INITIALIZE DC-WS-SESSION
            MOVE DC-CLIENT-GW-WS-HANDLE TO DC-WS-HANDLE
            MOVE DC-CLIENT-GW-WS-OPEN-FLAG TO DC-WS-OPEN-FLAG
@@ -143,6 +149,8 @@
            DC-WS-SESSION
            DC-RESULT.
        MAIN.
+      *> JP: 逆に、recv/send 後に変化した WS session を client 側へ退避します。
+      *> EN: Persist the mutated WS session back into client storage after recv/send work.
            MOVE DC-WS-HANDLE TO DC-CLIENT-GW-WS-HANDLE
            MOVE DC-WS-OPEN-FLAG TO DC-CLIENT-GW-WS-OPEN-FLAG
            MOVE DC-WS-LAST-OPCODE TO DC-CLIENT-GW-WS-LAST-OPCODE
@@ -186,6 +194,8 @@
            DC-HTTP-REQUEST
            DC-RESULT.
        MAIN.
+      *> JP: まず Discord REST の /gateway/bot を引くための request を組み立てます。
+      *> EN: Build the REST request for Discord's /gateway/bot endpoint.
            INITIALIZE DC-HTTP-REQUEST
            MOVE DC-CLIENT-GATEWAY-VERSION TO WS-VERSION-TEXT
            MOVE "GET" TO DC-HTTP-METHOD
@@ -229,6 +239,8 @@
            DC-HTTP-RESPONSE
            DC-RESULT.
        MAIN.
+      *> JP: /gateway/bot の JSON から url を抜き、使いやすい host 形へ正規化します。
+      *> EN: Extract the url from /gateway/bot JSON and normalize it into a convenient host form.
            IF DC-HTTP-STATUS-CODE NOT = 200
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_HTTP" TO DC-ERROR-CODE
@@ -278,6 +290,8 @@
            DC-WS-REQUEST
            DC-RESULT.
        MAIN.
+      *> JP: WS request builder は endpoint 未取得でも既定値 gateway.discord.gg へフォールバックします。
+      *> EN: The WS request builder falls back to gateway.discord.gg when no endpoint has been fetched yet.
            INITIALIZE DC-WS-REQUEST
            IF FUNCTION TRIM(DC-CLIENT-GATEWAY-ENDPOINT) = SPACES
                MOVE "gateway.discord.gg" TO WS-ENDPOINT

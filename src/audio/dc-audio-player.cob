@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-AUDIO-PLAYER-INIT.
+       *> JP: audio player の初期化と停止を担当する高水準 helper 群です。
+       *> JP: playback state の入口と終了処理をそろえ、上位の music flow を単純にします。
+       *> EN: High-level helpers for initializing and stopping the audio player.
+       *> EN: They standardize playback start/stop boundaries so the higher-level music flow stays simple.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -17,6 +21,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-AUDIO-PLAYER-STOP.
+       *> JP: audio player の初期化と停止を担当する高水準 helper 群です。
+       *> JP: playback state の入口と終了処理をそろえ、上位の music flow を単純にします。
+       *> EN: High-level helpers for initializing and stopping the audio player.
+       *> EN: They standardize playback start/stop boundaries so the higher-level music flow stays simple.
 
        DATA DIVISION.
        LINKAGE SECTION.

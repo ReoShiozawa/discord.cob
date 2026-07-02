@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-HEARTBEAT-BUILD.
+       *> JP: Discord Gateway heartbeat payload を組み立てる専用 helper です。
+       *> JP: sequence を現在値から安全に文字列化し、送信用 JSON へ変換します。
+       *> EN: Dedicated helper that builds Discord Gateway heartbeat payloads.
+       *> EN: It turns the current sequence into the JSON form needed for sending.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

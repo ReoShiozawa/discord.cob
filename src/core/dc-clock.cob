@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-CLOCK-NOW-CS.
+       *> JP: 現在時刻と heartbeat スケジューリングに関する core helper 群です。
+       *> JP: event loop はここで「今送るべきか」「次をいつにするか」を判断します。
+       *> EN: Core helpers for current-time access and heartbeat scheduling.
+       *> EN: The event loop uses them to decide whether something is due now and when to schedule the next beat.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -39,6 +43,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-HEARTBEAT-POLL.
+       *> JP: 現在時刻と heartbeat スケジューリングに関する core helper 群です。
+       *> JP: event loop はここで「今送るべきか」「次をいつにするか」を判断します。
+       *> EN: Core helpers for current-time access and heartbeat scheduling.
+       *> EN: The event loop uses them to decide whether something is due now and when to schedule the next beat.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -88,6 +96,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-HEARTBEAT-DEFER.
+       *> JP: 現在時刻と heartbeat スケジューリングに関する core helper 群です。
+       *> JP: event loop はここで「今送るべきか」「次をいつにするか」を判断します。
+       *> EN: Core helpers for current-time access and heartbeat scheduling.
+       *> EN: The event loop uses them to decide whether something is due now and when to schedule the next beat.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

@@ -30,7 +30,7 @@ Implemented:
 - HTTP response parser
 - HTTP header lookup
 - HTTP request builder
-- Mock-backed and live HTTP GET/POST/PATCH/DELETE execution over TLS
+- Mock-backed and live HTTP GET/POST/PUT/PATCH/DELETE execution over TLS
 - Basic chunked body decoding
 - In-memory TCP/TLS connection handles and fixtures
 - OS-backed TCP/TLS transport processes
@@ -58,13 +58,13 @@ Next:
 
 ## Phase 4: Interactions
 
-Status: slash-command routing, interaction payload parsing, callback request building/sending, and registerable dispatcher-backed handlers are implemented.
+Status: slash-command routing, HTTP registration/list/delete/overwrite helpers, interaction payload parsing, deferred/follow-up callback helpers, component/modal field extraction, custom interaction routing, richer response payload builders, and follow-up/original response edit/delete helpers are implemented.
 
 Next:
 
-- Slash command registration through HTTP
-- Deferred / follow-up interaction responses
-- Component and modal interaction coverage
+- Higher-level slash command schema / synchronization ergonomics
+- embed-focused and schema-safe response builders
+- follow-up retrieval / wait-mode helpers and response lifecycle polish
 
 ## Phase 5+: Voice / RTP / Crypto / Opus / Music
 

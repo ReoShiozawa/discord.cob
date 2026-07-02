@@ -1,3 +1,7 @@
+      *> JP: Opus/Ogg 読み取り中の registry 状態を保持する EXTERNAL ストアです。
+      *> JP: ファイル由来の buffer、page cursor、packet の途中状態を slot ごとに残します。
+      *> EN: EXTERNAL store for Opus/Ogg reader registry state.
+      *> EN: Each slot keeps file-backed buffers, page cursors, and in-progress packet state.
        78 DC-OPUS-MAX-HANDLES VALUE 8.
        78 DC-OPUS-BUFFER-MAX-BYTES VALUE 262144.
 

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. OPUS-TEST.
+       *> JP: Opus/Ogg reader と frame helper の契約を検証するテストです。
+       *> JP: file から frame を取り出す流れの基本形をここで固定します。
+       *> EN: Test that verifies the contracts of the Opus/Ogg reader and frame helpers.
+       *> EN: It locks down the basic flow that extracts frames from a file source.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

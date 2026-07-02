@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-RTP-BUILD-HEADER.
+       *> JP: RTP header を組み立てる helper です。
+       *> JP: sequence、timestamp、ssrc を wire bytes へ落とす責務を単独化しています。
+       *> EN: Helper that builds RTP headers.
+       *> EN: It isolates the step that turns sequence, timestamp, and SSRC into wire bytes.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-LOG.
+       *> JP: framework 内の簡易ログ出力入口です。
+       *> JP: 呼び出し側はログ整形の詳細を気にせず、level と message だけを渡します。
+       *> EN: Lightweight logging entry point for the framework.
+       *> EN: Callers pass only the level and message without caring about formatting details.
 
        DATA DIVISION.
        LINKAGE SECTION.

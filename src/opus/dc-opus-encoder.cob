@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-OPUS-BUILD-SILENCE.
+       *> JP: 無音 frame 生成や encode 処理を置く Opus helper 群です。
+       *> JP: transport が送れる 1 frame 形へ audio データを寄せる入口になります。
+       *> EN: Opus helpers for silence-frame generation and encoding.
+       *> EN: They form the entry point that shapes audio data into one transport-ready frame.
 
        DATA DIVISION.
        LINKAGE SECTION.
@@ -20,6 +24,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-OPUS-ENCODE.
+       *> JP: 無音 frame 生成や encode 処理を置く Opus helper 群です。
+       *> JP: transport が送れる 1 frame 形へ audio データを寄せる入口になります。
+       *> EN: Opus helpers for silence-frame generation and encoding.
+       *> EN: They form the entry point that shapes audio data into one transport-ready frame.
 
        DATA DIVISION.
        LINKAGE SECTION.

@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. HTTP-TEST.
+       *> JP: HTTP request builder と response parser の契約を検証するテストです。
+       *> JP: header、body、chunked decode の最低限の wire format をここで見ます。
+       *> EN: Test that verifies the HTTP request-builder and response-parser contracts.
+       *> EN: It checks the minimal wire format around headers, bodies, and chunked decoding.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -21,6 +25,7 @@
            PERFORM TEST-CHUNKED
            PERFORM TEST-HTTP-GET
            PERFORM TEST-HTTP-POST
+           PERFORM TEST-HTTP-PUT
            PERFORM FINISH-TEST.
 
        TEST-BUILD-REQUEST.
@@ -266,6 +271,61 @@
            IF DC-HTTP-BUFFER-DATA(1:22)
                NOT = "POST /api/v10/messages"
                 DISPLAY "http-test: post request line mismatch"
+                ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-HTTP-PUT.
+           INITIALIZE DC-HTTP-REQUEST
+           INITIALIZE DC-HTTP-RESPONSE
+           INITIALIZE DC-HTTP-BUFFER
+           MOVE WS-HOST TO DC-HTTP-HOST
+           MOVE "/api/v10/messages/1" TO DC-HTTP-PATH
+           MOVE "application/json" TO DC-HTTP-CONTENT-TYPE
+           MOVE 11 TO DC-HTTP-BODY-LENGTH
+           MOVE '{"ok":true}' TO DC-HTTP-BODY
+           MOVE SPACES TO WS-RAW-RESPONSE
+           STRING
+               "HTTP/1.1 200 OK" DELIMITED BY SIZE
+               X"0D0A" DELIMITED BY SIZE
+               "Content-Length: 11" DELIMITED BY SIZE
+               X"0D0A" DELIMITED BY SIZE
+               "Content-Type: application/json" DELIMITED BY SIZE
+               X"0D0A0D0A" DELIMITED BY SIZE
+               '{"ok":true}' DELIMITED BY SIZE
+               INTO WS-RAW-RESPONSE
+           END-STRING
+           MOVE FUNCTION LENGTH(FUNCTION TRIM(WS-RAW-RESPONSE TRAILING))
+               TO DC-HTTP-BUFFER-LENGTH
+           MOVE WS-RAW-RESPONSE TO DC-HTTP-BUFFER-DATA
+           CALL "DC-TLS-MOCK-SET-RESPONSE"
+               USING WS-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           CALL "DC-HTTP-PUT"
+               USING DC-HTTP-REQUEST DC-HTTP-RESPONSE DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY "http-test: put status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-HTTP-RESPONSE-BODY(1:11) NOT = '{"ok":true}'
+               DISPLAY "http-test: put body mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:24)
+               NOT = "PUT /api/v10/messages/1"
+                DISPLAY "http-test: put request line mismatch"
                 ADD 1 TO WS-FAILURES
            END-IF.
 

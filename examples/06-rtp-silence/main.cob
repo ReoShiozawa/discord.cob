@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. EXAMPLE-RTP-SILENCE.
+       *> JP: 無音 Opus frame から RTP packet を作る流れを示す example です。
+       *> JP: voice transport の最小 packet 組み立てを読む入口になります。
+       *> EN: Example that shows the flow from a silence Opus frame to an RTP packet.
+       *> EN: It provides an entry point for reading the minimal voice-transport packet assembly path.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

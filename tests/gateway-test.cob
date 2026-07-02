@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. GATEWAY-TEST.
+       *> JP: Gateway 接続と payload 生成の主要経路を検証するテストです。
+       *> JP: login/reconnect に必要な WS 前段の整合性確認を担います。
+       *> EN: Test that verifies the main Gateway connection and payload-building paths.
+       *> EN: It covers the WebSocket-side consistency needed for login and reconnect behavior.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

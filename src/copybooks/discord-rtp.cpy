@@ -1,3 +1,7 @@
+      *> JP: RTP header、rolling state、完成 packet の固定長構造です。
+      *> JP: sequence/timestamp の進行と packet 合成が同じ表現を共有します。
+      *> EN: Fixed-size structures for RTP headers, rolling state, and completed packets.
+      *> EN: Sequence/timestamp advancement and packet assembly share the same representation here.
        01 DC-RTP-HEADER.
           05 DC-RTP-BYTE-0 PIC X.
           05 DC-RTP-BYTE-1 PIC X.

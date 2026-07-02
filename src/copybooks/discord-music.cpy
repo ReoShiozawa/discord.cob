@@ -1,3 +1,7 @@
+      *> JP: track、queue、player など music ドメインの受け渡し構造です。
+      *> JP: command / state / formatter が同じ固定長レイアウトを共有する前提になっています。
+      *> EN: Shared music-domain structures for tracks, queues, and players.
+      *> EN: Commands, state helpers, and formatters all rely on this common fixed-size layout.
        01 DC-MUSIC-TRACK.
           05 DC-TRACK-ID PIC X(64).
           05 DC-TRACK-TITLE PIC X(128).

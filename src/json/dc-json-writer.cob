@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-JSON-WRITE-STRING.
+       *> JP: JSON 文字列を安全に組み立てる writer helper 群です。
+       *> JP: reply payload や command payload の断片をエスケープ込みで整えます。
+       *> EN: Writer helpers for safely constructing JSON strings.
+       *> EN: They escape and assemble fragments used in replies and command payloads.
 
        DATA DIVISION.
        LINKAGE SECTION.

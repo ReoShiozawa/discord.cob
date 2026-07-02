@@ -1,5 +1,9 @@
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-PLAY.
+       *> JP: music 機能の高水準 API 群です。
+       *> JP: command handler から呼ばれる play/skip/stop/queue 操作を domain 単位で束ねています。
+       *> EN: High-level APIs for the music feature set.
+       *> EN: They bundle play/skip/stop/queue operations as domain actions for command handlers.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -163,6 +167,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-SKIP.
+       *> JP: music 機能の高水準 API 群です。
+       *> JP: command handler から呼ばれる play/skip/stop/queue 操作を domain 単位で束ねています。
+       *> EN: High-level APIs for the music feature set.
+       *> EN: They bundle play/skip/stop/queue operations as domain actions for command handlers.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -291,6 +299,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-STOP.
+       *> JP: music 機能の高水準 API 群です。
+       *> JP: command handler から呼ばれる play/skip/stop/queue 操作を domain 単位で束ねています。
+       *> EN: High-level APIs for the music feature set.
+       *> EN: They bundle play/skip/stop/queue operations as domain actions for command handlers.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
@@ -407,6 +419,10 @@
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-QUEUE-LIST.
+       *> JP: music 機能の高水準 API 群です。
+       *> JP: command handler から呼ばれる play/skip/stop/queue 操作を domain 単位で束ねています。
+       *> EN: High-level APIs for the music feature set.
+       *> EN: They bundle play/skip/stop/queue operations as domain actions for command handlers.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.

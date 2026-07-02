@@ -1,3 +1,7 @@
+      *> JP: guild ごとの music runtime を保存する EXTERNAL ストアです。
+      *> JP: queue と player の断面を固定長テーブルで持ち、tick 間で再利用します。
+      *> EN: EXTERNAL store for guild-scoped music runtimes.
+      *> EN: It keeps queue and player snapshots in fixed-size tables so ticks can reload and reuse them.
        78 DC-MUSIC-MAX-RUNTIMES VALUE 8.
 
        01 DC-MUSIC-RUNTIME-STORE EXTERNAL.

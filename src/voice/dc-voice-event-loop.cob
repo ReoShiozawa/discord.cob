@@ -81,10 +81,20 @@
                        END-IF
                     WHEN 8
       *> JP: Voice close frame は voice session 全体の teardown に繋げます。
-      *> EN: A Voice close frame tears down the entire voice session.
-                        CALL "DC-VOICE-DISCONNECT"
-                            USING DC-VOICE-SESSION
-                                  DC-RESULT
+      *> JP: resume 材料が残っていれば、切断ではなく reconnect を試みます。
+      *> EN: If resume context is still available, attempt reconnect instead of a full teardown.
+                        IF FUNCTION TRIM(DC-VS-SESSION-ID) NOT = SPACES
+                           AND FUNCTION TRIM(DC-VS-TOKEN) NOT = SPACES
+                           AND FUNCTION TRIM(DC-VS-ENDPOINT) NOT = SPACES
+                            CALL "DC-VOICE-GATEWAY-RECONNECT"
+                                USING DC-CLIENT
+                                      DC-VOICE-SESSION
+                                      DC-RESULT
+                        ELSE
+                            CALL "DC-VOICE-DISCONNECT"
+                                USING DC-VOICE-SESSION
+                                      DC-RESULT
+                        END-IF
                        GOBACK
                END-EVALUATE
            ELSE
@@ -97,9 +107,18 @@
                        IF DC-STATUS-CODE NOT = DC-STATUS-OK
                            GOBACK
                        END-IF
-                       CALL "DC-VOICE-DISCONNECT"
-                           USING DC-VOICE-SESSION
-                                 DC-RESULT
+                       IF FUNCTION TRIM(DC-VS-SESSION-ID) NOT = SPACES
+                          AND FUNCTION TRIM(DC-VS-TOKEN) NOT = SPACES
+                          AND FUNCTION TRIM(DC-VS-ENDPOINT) NOT = SPACES
+                           CALL "DC-VOICE-GATEWAY-RECONNECT"
+                               USING DC-CLIENT
+                                     DC-VOICE-SESSION
+                                     DC-RESULT
+                       ELSE
+                           CALL "DC-VOICE-DISCONNECT"
+                               USING DC-VOICE-SESSION
+                                     DC-RESULT
+                       END-IF
                        GOBACK
                    END-IF
                ELSE
@@ -133,6 +152,20 @@
                      WS-NOW-CS
                      DC-RESULT
            IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+      *> JP: heartbeat 期限を越えても ACK が来ない Voice session は、
+      *> JP: transport が古くなったとみなして reconnect し直します。
+      *> EN: If the Voice heartbeat deadline passes without an ACK,
+      *> EN: treat the transport as stale and reconnect it.
+           IF DC-VS-AWAITING-ACK = 1
+              AND DC-VS-HEARTBEAT-NEXT-AT > 0
+              AND WS-NOW-CS >= DC-VS-HEARTBEAT-NEXT-AT
+               CALL "DC-VOICE-GATEWAY-RECONNECT"
+                   USING DC-CLIENT
+                         DC-VOICE-SESSION
+                         DC-RESULT
                GOBACK
            END-IF
 

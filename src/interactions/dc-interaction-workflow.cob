@@ -1009,9 +1009,10 @@
        COPY "discord-interaction.cpy".
        COPY "discord-music.cpy".
        01 WS-REPLY-CONTENT PIC X(2000).
+       01 WS-NOWPLAYING-TEXT PIC X(2000).
        01 WS-FILE-OPTION PIC X(64) VALUE "file".
+       01 WS-INDEX-OPTION PIC X(64) VALUE "index".
        01 WS-OPTION-VALUE PIC X(512).
-       01 WS-COUNT-TEXT PIC ZZZ9.
        01 WS-CMD-RESULT.
           05 WS-CMD-STATUS-CODE PIC S9(9) COMP-5.
           05 WS-CMD-ERROR-CODE PIC X(64).
@@ -1111,6 +1112,10 @@
                    MOVE "Queued voice leave." TO WS-REPLY-CONTENT
                WHEN "/skip"
                    MOVE "Skipped current track." TO WS-REPLY-CONTENT
+               WHEN "/pause"
+                   MOVE "Paused playback." TO WS-REPLY-CONTENT
+               WHEN "/resume"
+                   MOVE "Resumed playback." TO WS-REPLY-CONTENT
                WHEN "/stop"
                    MOVE "Stopped playback." TO WS-REPLY-CONTENT
                WHEN "/queue"
@@ -1121,15 +1126,49 @@
                              DC-MUSIC-QUEUE
                              WS-LOCAL-RESULT
                    IF WS-LOCAL-STATUS-CODE = DC-STATUS-OK
-                       MOVE DC-MQ-SIZE TO WS-COUNT-TEXT
+                       CALL "DC-QUEUE-FORMAT"
+                           USING DC-MUSIC-QUEUE
+                                 WS-REPLY-CONTENT
+                                 WS-LOCAL-RESULT
+                   ELSE
+                       MOVE "Queue inspected." TO WS-REPLY-CONTENT
+                   END-IF
+               WHEN "/remove"
+                   MOVE SPACES TO WS-OPTION-VALUE
+                   CALL "DC-INTERACTION-GET-OPTION"
+                       USING DC-INTERACTION
+                             WS-INDEX-OPTION
+                             WS-OPTION-VALUE
+                             WS-LOCAL-RESULT
+                   IF WS-LOCAL-STATUS-CODE = DC-STATUS-OK
                        STRING
-                           "Queue items: " DELIMITED BY SIZE
-                           FUNCTION TRIM(WS-COUNT-TEXT)
+                           "Removed queue item " DELIMITED BY SIZE
+                           FUNCTION TRIM(WS-OPTION-VALUE)
                                DELIMITED BY SIZE
+                           "." DELIMITED BY SIZE
                            INTO WS-REPLY-CONTENT
                        END-STRING
                    ELSE
-                       MOVE "Queue inspected." TO WS-REPLY-CONTENT
+                       MOVE "Removed queued track." TO WS-REPLY-CONTENT
+                   END-IF
+               WHEN "/clearqueue"
+                   MOVE "Cleared queued tracks." TO WS-REPLY-CONTENT
+               WHEN "/nowplaying"
+                   INITIALIZE DC-MUSIC-TRACK
+                   MOVE SPACES TO WS-NOWPLAYING-TEXT
+                   CALL "DC-MUSIC-NOWPLAYING"
+                       USING DC-CLIENT
+                             DC-GUILD-ID
+                             DC-MUSIC-TRACK
+                             WS-LOCAL-RESULT
+                   IF WS-LOCAL-STATUS-CODE = DC-STATUS-OK
+                       CALL "DC-NOWPLAYING-FORMAT"
+                           USING DC-MUSIC-TRACK
+                                 WS-NOWPLAYING-TEXT
+                                 WS-LOCAL-RESULT
+                       MOVE WS-NOWPLAYING-TEXT TO WS-REPLY-CONTENT
+                   ELSE
+                       MOVE "Playback inspected." TO WS-REPLY-CONTENT
                    END-IF
                WHEN OTHER
                    MOVE "Command handled." TO WS-REPLY-CONTENT
@@ -1632,6 +1671,281 @@
        END PROGRAM DC-INTERACTION-FOLLOWUP.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-FUP-WAIT-BUILD.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-APPLICATION-ID PIC X(32).
+       01 WS-BODY-LENGTH PIC 9(5) COMP-5.
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-FOLLOWUP-PAYLOAD PIC X(8192).
+       01 LK-HTTP-REQUEST.
+          05 LK-HTTP-METHOD PIC X(8).
+          05 LK-HTTP-HOST PIC X(256).
+          05 LK-HTTP-PATH PIC X(512).
+          05 LK-HTTP-AUTHORIZATION PIC X(320).
+          05 LK-HTTP-CONTENT-TYPE PIC X(128).
+          05 LK-HTTP-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-FOLLOWUP-PAYLOAD
+           LK-HTTP-REQUEST
+           DC-RESULT.
+       MAIN.
+      *> JP: wait=true 付き follow-up create は作成された message を即座に返してほしい場合に使います。
+      *> EN: A follow-up create with wait=true is used when the caller wants the
+      *> EN: created message returned immediately.
+           INITIALIZE LK-HTTP-REQUEST
+           MOVE SPACES TO WS-APPLICATION-ID
+
+           CALL "DC-INTERACTION-RESOLVE-APP-ID"
+               USING DC-CLIENT
+                     WS-APPLICATION-ID
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           IF FUNCTION TRIM(DC-INTERACTION-TOKEN) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Interaction token is required for follow-up wait requests."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+           IF FUNCTION TRIM(DC-FOLLOWUP-PAYLOAD) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Follow-up wait payload is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           MOVE FUNCTION LENGTH(
+               FUNCTION TRIM(DC-FOLLOWUP-PAYLOAD TRAILING))
+               TO WS-BODY-LENGTH
+           MOVE "POST" TO LK-HTTP-METHOD
+           MOVE "discord.com" TO LK-HTTP-HOST
+           STRING
+               "/api/v10/webhooks/" DELIMITED BY SIZE
+               FUNCTION TRIM(WS-APPLICATION-ID) DELIMITED BY SIZE
+               "/" DELIMITED BY SIZE
+               FUNCTION TRIM(DC-INTERACTION-TOKEN) DELIMITED BY SIZE
+               "?wait=true" DELIMITED BY SIZE
+               INTO LK-HTTP-PATH
+           END-STRING
+           MOVE "application/json" TO LK-HTTP-CONTENT-TYPE
+           MOVE WS-BODY-LENGTH TO LK-HTTP-BODY-LENGTH
+           IF WS-BODY-LENGTH > 0
+               MOVE DC-FOLLOWUP-PAYLOAD(1:WS-BODY-LENGTH)
+                   TO LK-HTTP-BODY(1:WS-BODY-LENGTH)
+           END-IF
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-FUP-WAIT-BUILD.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-FUP-WAIT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "discord-net.cpy".
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-FOLLOWUP-PAYLOAD PIC X(8192).
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-FOLLOWUP-PAYLOAD
+           LK-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+      *> JP: wait-mode 実行も build と execute を分け、request 形状を独立に検証しやすくしています。
+      *> EN: The wait-mode executor also splits build and execute so request
+      *> EN: shape can be tested independently.
+           INITIALIZE DC-HTTP-REQUEST
+           INITIALIZE LK-HTTP-RESPONSE
+
+           CALL "DC-INTERACTION-FUP-WAIT-BUILD"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-FOLLOWUP-PAYLOAD
+                     DC-HTTP-REQUEST
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-HTTP-POST"
+               USING DC-HTTP-REQUEST
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           IF LK-HTTP-STATUS-CODE < 200
+              OR LK-HTTP-STATUS-CODE >= 300
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_HTTP" TO DC-ERROR-CODE
+               MOVE "Interaction follow-up wait did not return success."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-FUP-WAIT.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-FUP-GET-BUILD.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-APPLICATION-ID PIC X(32).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-FOLLOWUP-MESSAGE-ID-IN PIC X(32).
+       01 LK-HTTP-REQUEST.
+          05 LK-HTTP-METHOD PIC X(8).
+          05 LK-HTTP-HOST PIC X(256).
+          05 LK-HTTP-PATH PIC X(512).
+          05 LK-HTTP-AUTHORIZATION PIC X(320).
+          05 LK-HTTP-CONTENT-TYPE PIC X(128).
+          05 LK-HTTP-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-FOLLOWUP-MESSAGE-ID-IN
+           LK-HTTP-REQUEST
+           DC-RESULT.
+       MAIN.
+      *> JP: follow-up 取得は /messages/{message-id} への GET です。
+      *> EN: Follow-up retrieval is a GET against /messages/{message-id}.
+           INITIALIZE LK-HTTP-REQUEST
+           MOVE SPACES TO WS-APPLICATION-ID
+
+           CALL "DC-INTERACTION-RESOLVE-APP-ID"
+               USING DC-CLIENT
+                     WS-APPLICATION-ID
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           IF FUNCTION TRIM(DC-INTERACTION-TOKEN) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Interaction token is required for follow-up get requests."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+           IF FUNCTION TRIM(DC-FOLLOWUP-MESSAGE-ID-IN) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Follow-up message id is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           MOVE "GET" TO LK-HTTP-METHOD
+           MOVE "discord.com" TO LK-HTTP-HOST
+           STRING
+               "/api/v10/webhooks/" DELIMITED BY SIZE
+               FUNCTION TRIM(WS-APPLICATION-ID) DELIMITED BY SIZE
+               "/" DELIMITED BY SIZE
+               FUNCTION TRIM(DC-INTERACTION-TOKEN) DELIMITED BY SIZE
+               "/messages/" DELIMITED BY SIZE
+               FUNCTION TRIM(DC-FOLLOWUP-MESSAGE-ID-IN) DELIMITED BY SIZE
+               INTO LK-HTTP-PATH
+           END-STRING
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-FUP-GET-BUILD.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-FUP-GET.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "discord-net.cpy".
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-FOLLOWUP-MESSAGE-ID-IN PIC X(32).
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-FOLLOWUP-MESSAGE-ID-IN
+           LK-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+      *> JP: Discord 側が 2xx を返せば follow-up の取得成功とみなします。
+      *> EN: Any 2xx response from Discord is treated as a successful follow-up retrieval.
+           INITIALIZE DC-HTTP-REQUEST
+           INITIALIZE LK-HTTP-RESPONSE
+
+           CALL "DC-INTERACTION-FUP-GET-BUILD"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-FOLLOWUP-MESSAGE-ID-IN
+                     DC-HTTP-REQUEST
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-HTTP-GET"
+               USING DC-HTTP-REQUEST
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           IF LK-HTTP-STATUS-CODE < 200
+              OR LK-HTTP-STATUS-CODE >= 300
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_HTTP" TO DC-ERROR-CODE
+               MOVE "Interaction follow-up get did not return success."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-FUP-GET.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-INTERACTION-FUP-EDIT-BUILD.
 
        DATA DIVISION.
@@ -1994,6 +2308,78 @@
                      DC-RESULT
            GOBACK.
        END PROGRAM DC-INTERACTION-ORIG-EDIT.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-ORIG-GET-BUILD.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-ORIGINAL-MESSAGE-ID PIC X(32) VALUE "@original".
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 LK-HTTP-REQUEST.
+          05 LK-HTTP-METHOD PIC X(8).
+          05 LK-HTTP-HOST PIC X(256).
+          05 LK-HTTP-PATH PIC X(512).
+          05 LK-HTTP-AUTHORIZATION PIC X(320).
+          05 LK-HTTP-CONTENT-TYPE PIC X(128).
+          05 LK-HTTP-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           LK-HTTP-REQUEST
+           DC-RESULT.
+       MAIN.
+      *> JP: original response 取得も follow-up get の特殊 ID 版です。
+      *> EN: Original-response retrieval is the special-id variant of follow-up get.
+           CALL "DC-INTERACTION-FUP-GET-BUILD"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-ORIGINAL-MESSAGE-ID
+                     LK-HTTP-REQUEST
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-ORIG-GET-BUILD.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-ORIG-GET.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-ORIGINAL-MESSAGE-ID PIC X(32) VALUE "@original".
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           LK-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+      *> JP: original response 取得実行も汎用 follow-up get helper に委譲します。
+      *> EN: Original-response retrieval also delegates to the generic follow-up get helper.
+           CALL "DC-INTERACTION-FUP-GET"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-ORIGINAL-MESSAGE-ID
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-ORIG-GET.
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-INTERACTION-ORIG-DEL-BUILD.

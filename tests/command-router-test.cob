@@ -10,6 +10,8 @@
        COPY "discord-client.cpy".
        COPY "discord-interaction.cpy".
        COPY "discord-music.cpy".
+       COPY "discord-rtp.cpy".
+       COPY "discord-opus.cpy".
        COPY "discord-result.cpy".
        01 WS-GUILD-ID PIC X(32) VALUE "guild-1".
        01 WS-VOICE-CHANNEL-ID PIC X(32) VALUE "voice-1".
@@ -26,6 +28,11 @@
            PERFORM TEST-LEAVE
            PERFORM TEST-PLAY
            PERFORM TEST-QUEUE
+           PERFORM TEST-NOWPLAYING
+           PERFORM TEST-REMOVE
+           PERFORM TEST-CLEARQUEUE
+           PERFORM TEST-PAUSE
+           PERFORM TEST-RESUME
            PERFORM TEST-SKIP
            PERFORM TEST-STOP
            PERFORM TEST-PLAY-OPTION-ERROR
@@ -155,6 +162,91 @@
                      DC-RESULT
            PERFORM CHECK-OK.
 
+       TEST-NOWPLAYING.
+           PERFORM PREPARE-INTERACTION
+           MOVE "/nowplaying" TO DC-COMMAND-NAME
+           CALL "DC-COMMAND-ROUTE"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK.
+
+       TEST-REMOVE.
+           PERFORM PREPARE-INTERACTION
+           MOVE "/remove" TO DC-COMMAND-NAME
+           MOVE 1 TO DC-COMMAND-OPTION-COUNT
+           MOVE "index" TO DC-COMMAND-OPTION-NAME(1)
+           MOVE "1" TO DC-COMMAND-OPTION-VALUE(1)
+           CALL "DC-COMMAND-ROUTE"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           INITIALIZE DC-MUSIC-QUEUE
+           CALL "DC-MUSIC-QUEUE-LIST"
+               USING DC-CLIENT
+                     WS-GUILD-ID
+                     DC-MUSIC-QUEUE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-MQ-SIZE NOT = 0
+               DISPLAY "command-router-test: remove did not drain queue"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-CLEARQUEUE.
+           PERFORM PREPARE-INTERACTION
+           MOVE "/play" TO DC-COMMAND-NAME
+           MOVE 1 TO DC-COMMAND-OPTION-COUNT
+           MOVE "file" TO DC-COMMAND-OPTION-NAME(1)
+           MOVE WS-SOURCE-PATH TO DC-COMMAND-OPTION-VALUE(1)
+           CALL "DC-COMMAND-ROUTE"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM RESET-GATEWAY-COMMAND
+
+           PERFORM PREPARE-INTERACTION
+           MOVE "/clearqueue" TO DC-COMMAND-NAME
+           CALL "DC-COMMAND-ROUTE"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           INITIALIZE DC-MUSIC-QUEUE
+           CALL "DC-MUSIC-QUEUE-LIST"
+               USING DC-CLIENT
+                     WS-GUILD-ID
+                     DC-MUSIC-QUEUE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-MQ-SIZE NOT = 0
+               DISPLAY "command-router-test: clearqueue did not clear queue"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-PAUSE.
+           PERFORM PREPARE-PLAYING-RUNTIME
+           PERFORM PREPARE-INTERACTION
+           MOVE "/pause" TO DC-COMMAND-NAME
+           CALL "DC-COMMAND-ROUTE"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM CHECK-PLAYER-STATE-IS-PAUSED.
+
+       TEST-RESUME.
+           PERFORM PREPARE-INTERACTION
+           MOVE "/resume" TO DC-COMMAND-NAME
+           CALL "DC-COMMAND-ROUTE"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM CHECK-PLAYER-STATE-IS-PLAYING.
+
        TEST-SKIP.
            PERFORM PREPARE-INTERACTION
            MOVE "/skip" TO DC-COMMAND-NAME
@@ -248,6 +340,71 @@
            MOVE "text-1" TO DC-CHANNEL-ID
            MOVE "user-1" TO DC-USER-ID
            MOVE WS-VOICE-CHANNEL-ID TO DC-USER-VOICE-CHANNEL-ID.
+
+       PREPARE-PLAYING-RUNTIME.
+           CALL "DC-MUSIC-STATE-LOAD"
+               USING WS-GUILD-ID
+                     DC-MUSIC-QUEUE
+                     DC-AUDIO-PLAYER
+                     DC-MUSIC-TRACK
+                     DC-RTP-STATE
+                     DC-OPUS-HANDLE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-MQ-SIZE > 0
+               CALL "DC-MUSIC-QUEUE-POP"
+                   USING DC-MUSIC-QUEUE
+                         DC-MUSIC-TRACK
+                         DC-RESULT
+               PERFORM CHECK-OK
+           END-IF
+           MOVE 1 TO DC-PLAYER-STATE
+           MOVE 1 TO DC-TRACK-STATUS
+           IF FUNCTION TRIM(DC-TRACK-TITLE) = SPACES
+               MOVE WS-SOURCE-PATH TO DC-TRACK-TITLE
+           END-IF
+           IF FUNCTION TRIM(DC-TRACK-SOURCE) = SPACES
+               MOVE WS-SOURCE-PATH TO DC-TRACK-SOURCE
+           END-IF
+           CALL "DC-MUSIC-STATE-SAVE"
+               USING WS-GUILD-ID
+                     DC-MUSIC-QUEUE
+                     DC-AUDIO-PLAYER
+                     DC-MUSIC-TRACK
+                     DC-RTP-STATE
+                     DC-OPUS-HANDLE
+                     DC-RESULT
+           PERFORM CHECK-OK.
+
+       CHECK-PLAYER-STATE-IS-PAUSED.
+           CALL "DC-MUSIC-STATE-LOAD"
+               USING WS-GUILD-ID
+                     DC-MUSIC-QUEUE
+                     DC-AUDIO-PLAYER
+                     DC-MUSIC-TRACK
+                     DC-RTP-STATE
+                     DC-OPUS-HANDLE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-PLAYER-STATE NOT = 2
+               DISPLAY "command-router-test: pause state mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       CHECK-PLAYER-STATE-IS-PLAYING.
+           CALL "DC-MUSIC-STATE-LOAD"
+               USING WS-GUILD-ID
+                     DC-MUSIC-QUEUE
+                     DC-AUDIO-PLAYER
+                     DC-MUSIC-TRACK
+                     DC-RTP-STATE
+                     DC-OPUS-HANDLE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-PLAYER-STATE NOT = 1
+               DISPLAY "command-router-test: resume state mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
 
        RESET-GATEWAY-COMMAND.
            MOVE 0 TO DC-CLIENT-GW-COMMAND-QUEUED

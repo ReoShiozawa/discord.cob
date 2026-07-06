@@ -9,6 +9,7 @@
           05 DC-AUDIO-FRAME-MS PIC 9(2) COMP-5.
           05 DC-AUDIO-SAMPLE-RATE PIC 9(5) COMP-5.
           05 DC-AUDIO-CHANNELS PIC 9.
+          05 DC-MUSIC-IDLE-LEAVE-TICKS PIC 9(9) COMP-5.
 
       *> JP: DC-CLIENT は実行中の bot 状態をひとまとめに持つ中心構造です。
       *> EN: DC-CLIENT is the central runtime structure that carries bot state.
@@ -73,6 +74,7 @@
           05 DC-CLIENT-AUDIO-FRAME-MS PIC 9(2) COMP-5.
           05 DC-CLIENT-AUDIO-SAMPLE-RATE PIC 9(5) COMP-5.
           05 DC-CLIENT-AUDIO-CHANNELS PIC 9.
+          05 DC-CLIENT-MUSIC-IDLE-LEAVE-TICKS PIC 9(9) COMP-5.
       *> JP: 一般 Gateway event 名から program 名へ引く登録表です。
       *> EN: Registration table from Gateway event name to handler program.
           05 DC-EVENT-HANDLER-TABLE.

@@ -36,9 +36,10 @@ Implemented today:
 - Initial Ogg Opus packet extraction plus explicit reader handle close
 - Opus silence frame generation
 - Music queue primitives, track helpers, and a queue-backed playback tick for raw/local voice tests
-- Slash-command routing for `/join`, `/leave`, `/play`, `/skip`, `/stop`, and `/queue`
+- Slash-command routing for `/join`, `/leave`, `/play`, `/skip`, `/pause`, `/resume`, `/stop`, `/queue`, `/remove`, `/clearqueue`, and `/nowplaying`
+- Custom music interaction panels for `/nowplaying` and `/queue`, including inline playback/queue controls
 - Slash-command registration, listing, deletion, and bulk overwrite over HTTP, including music command bootstrap helpers
-- Interaction JSON parsing for slash commands, components, and modal submits; custom command/component/modal routing; immediate/update/modal/deferred/follow-up reply helpers; follow-up and original response edit/delete helpers; and registerable dispatcher-backed interaction handlers
+- Interaction JSON parsing for slash commands, components, and modal submits; custom command/component/modal routing; immediate/update/modal/deferred/follow-up reply helpers; follow-up wait/get/edit/delete and original response get/edit/delete helpers; and registerable dispatcher-backed interaction handlers
 
 In progress or not implemented yet:
 

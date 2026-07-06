@@ -14,6 +14,16 @@
            VALUE '{"name":"join","type":1,"description":"Join your current voice channel"}'.
        01 WS-QUEUE-COMMAND-JSON PIC X(8192)
            VALUE '{"name":"queue","type":1,"description":"Show queued tracks"}'.
+       01 WS-REMOVE-COMMAND-JSON PIC X(8192)
+           VALUE '{"name":"remove","type":1,"description":"Remove a queued track by position","options":[{"name":"index","type":4,"description":"1-based queue position","required":true}]}'.
+       01 WS-CLEARQUEUE-COMMAND-JSON PIC X(8192)
+           VALUE '{"name":"clearqueue","type":1,"description":"Clear all queued tracks"}'.
+       01 WS-PAUSE-COMMAND-JSON PIC X(8192)
+           VALUE '{"name":"pause","type":1,"description":"Pause the current track"}'.
+       01 WS-RESUME-COMMAND-JSON PIC X(8192)
+           VALUE '{"name":"resume","type":1,"description":"Resume the paused track"}'.
+       01 WS-NOWPLAYING-COMMAND-JSON PIC X(8192)
+           VALUE '{"name":"nowplaying","type":1,"description":"Show the current track"}'.
        01 WS-COMMANDS-JSON PIC X(8192).
        01 WS-LIST-BODY PIC X(8192).
        01 WS-OVERWRITE-BODY PIC X(8192).
@@ -42,6 +52,7 @@
            PERFORM TEST-REGISTER-ERROR
            PERFORM TEST-MUSIC-COMMANDS-REGISTER
            PERFORM TEST-MUSIC-COMMANDS-OVERWRITE
+           PERFORM TEST-MUSIC-BOT-BOOTSTRAP
            PERFORM FINISH-TEST.
 
        INIT-CLIENT.
@@ -362,7 +373,7 @@
            COMPUTE WS-BODY-START =
                FUNCTION LENGTH(FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING))
                - FUNCTION LENGTH(
-                   FUNCTION TRIM(WS-QUEUE-COMMAND-JSON TRAILING))
+                   FUNCTION TRIM(WS-NOWPLAYING-COMMAND-JSON TRAILING))
                + 1
            IF WS-BODY-START < 1
                DISPLAY "slash-command-test: music register body offset mismatch"
@@ -371,8 +382,8 @@
                IF DC-HTTP-BUFFER-DATA(
                    WS-BODY-START:
                    FUNCTION LENGTH(
-                       FUNCTION TRIM(WS-QUEUE-COMMAND-JSON TRAILING)))
-                   NOT = FUNCTION TRIM(WS-QUEUE-COMMAND-JSON)
+                       FUNCTION TRIM(WS-NOWPLAYING-COMMAND-JSON TRAILING)))
+                   NOT = FUNCTION TRIM(WS-NOWPLAYING-COMMAND-JSON)
                    DISPLAY "slash-command-test: music register body mismatch"
                    ADD 1 TO WS-FAILURES
                END-IF
@@ -416,6 +427,69 @@
                END-IF
            END-IF.
 
+       TEST-MUSIC-BOT-BOOTSTRAP.
+           PERFORM PREPARE-OVERWRITE-RESPONSE
+           CALL "DC-MUSIC-BOT-BOOTSTRAP"
+               USING DC-CLIENT
+                     WS-GUILD-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HANDLER-COUNT NOT = 3
+               DISPLAY "slash-command-test: bootstrap handler count mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HANDLER-EVENT-NAME(1))
+               NOT = "VOICE_STATE_UPDATE"
+               DISPLAY "slash-command-test: bootstrap first event mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HANDLER-EVENT-NAME(3))
+               NOT = "INTERACTION_CREATE"
+               DISPLAY "slash-command-test: bootstrap interaction event mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-IA-COMMAND-COUNT NOT = 2
+               DISPLAY "slash-command-test: bootstrap command ia count mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-IA-COMMAND-NAME(1))
+               NOT = "/queue"
+               DISPLAY "slash-command-test: bootstrap queue ia mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-IA-COMMAND-NAME(2))
+               NOT = "/nowplaying"
+               DISPLAY "slash-command-test: bootstrap nowplaying ia mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-IA-COMPONENT-COUNT NOT = 7
+               DISPLAY
+                   "slash-command-test: bootstrap component ia count mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-IA-COMPONENT-ID(1))
+               NOT = "music:skip"
+               DISPLAY "slash-command-test: bootstrap skip component mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-IA-COMPONENT-ID(7))
+               NOT = "music:np:view"
+               DISPLAY "slash-command-test: bootstrap npview component mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:55)
+               NOT = "PUT /api/v10/applications/app-1/guilds/guild-1/commands"
+               DISPLAY "slash-command-test: bootstrap overwrite path mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        BUILD-EXPECTED-COMMANDS-JSON.
            MOVE SPACES TO WS-COMMANDS-JSON
            STRING
@@ -436,11 +510,30 @@
                '{"name":"skip","type":1,' DELIMITED BY SIZE
                '"description":"Skip the current track"},'
                    DELIMITED BY SIZE
+               '{"name":"pause","type":1,' DELIMITED BY SIZE
+               '"description":"Pause the current track"},'
+                   DELIMITED BY SIZE
+               '{"name":"resume","type":1,' DELIMITED BY SIZE
+               '"description":"Resume the paused track"},'
+                   DELIMITED BY SIZE
                '{"name":"stop","type":1,' DELIMITED BY SIZE
                '"description":"Stop playback"},'
                    DELIMITED BY SIZE
                '{"name":"queue","type":1,' DELIMITED BY SIZE
-               '"description":"Show queued tracks"}'
+               '"description":"Show queued tracks"},'
+                   DELIMITED BY SIZE
+               '{"name":"remove","type":1,' DELIMITED BY SIZE
+               '"description":"Remove a queued track by position",'
+                   DELIMITED BY SIZE
+               '"options":[{"name":"index","type":4,' DELIMITED BY SIZE
+               '"description":"1-based queue position",'
+                   DELIMITED BY SIZE
+               '"required":true}]},' DELIMITED BY SIZE
+               '{"name":"clearqueue","type":1,' DELIMITED BY SIZE
+               '"description":"Clear all queued tracks"},'
+                   DELIMITED BY SIZE
+               '{"name":"nowplaying","type":1,' DELIMITED BY SIZE
+               '"description":"Show the current track"}'
                    DELIMITED BY SIZE
                "]" DELIMITED BY SIZE
                INTO WS-COMMANDS-JSON

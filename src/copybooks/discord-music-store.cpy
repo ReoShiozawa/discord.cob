@@ -42,3 +42,4 @@
                 15 DC-MR-OPUS-HANDLE-ID PIC 9(10) COMP-5.
                 15 DC-MR-OPUS-SOURCE PIC X(512).
                 15 DC-MR-OPUS-EOF-FLAG PIC 9.
+             10 DC-MR-IDLE-TICK-COUNT PIC 9(9) COMP-5.

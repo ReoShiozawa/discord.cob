@@ -55,9 +55,10 @@
 - `aead_xchacha20_poly1305_rtpsize` による voice packet 暗号化
 - Ogg Opus からの初期 packet 抽出と reader handle の close
 - queue に積んだ `.ogg` / `.opus` ソースを Voice tick にぶら下げて raw/local 送信する再生土台
-- `/join` `/leave` `/play` `/skip` `/stop` `/queue` を music / voice API に接続する command routing
+- `/join` `/leave` `/play` `/skip` `/pause` `/resume` `/stop` `/queue` `/remove` `/clearqueue` `/nowplaying` を music / voice API に接続する command routing
+- `/nowplaying` と `/queue` に対する custom interaction panel と、その場で操作できる inline control
 - slash command の HTTP registration / list / delete / overwrite と、music command 一式を同期する helper
-- slash command / component / modal submit の interaction JSON 取り込み、custom handler routing、即時 / update / modal / deferred / follow-up reply helper、follow-up / original response の edit / delete helper、callback POST、dispatcher 経由で登録できる interaction handler
+- slash command / component / modal submit の interaction JSON 取り込み、custom handler routing、即時 / update / modal / deferred / follow-up reply helper、follow-up / original response の get / wait / edit / delete helper、callback POST、dispatcher 経由で登録できる interaction handler
 
 引き続き開発中の領域:
 

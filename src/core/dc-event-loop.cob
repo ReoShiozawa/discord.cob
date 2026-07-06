@@ -98,13 +98,26 @@
                                    TO DC-ERROR-MESSAGE
                                GOBACK
                            END-IF
+                           IF FUNCTION TRIM(DC-EVENT-NAME) = "RECONNECT"
+                               CALL "DC-GATEWAY-RECONNECT"
+                                   USING DC-CLIENT
+                                         DC-RESULT
+                               GOBACK
+                           END-IF
                        END-IF
                     WHEN 8
       *> JP: close frame を受けたら client 側の Gateway state も切断状態へ戻します。
       *> EN: A close frame also tears down the client-side Gateway state.
-                        CALL "DC-CLIENT-DISCONNECT"
-                            USING DC-CLIENT
-                                  DC-RESULT
+                        IF FUNCTION TRIM(DC-CLIENT-SESSION-ID) NOT = SPACES
+                           AND DC-CLIENT-SEQUENCE > 0
+                            CALL "DC-GATEWAY-RECONNECT"
+                                USING DC-CLIENT
+                                      DC-RESULT
+                        ELSE
+                            CALL "DC-CLIENT-DISCONNECT"
+                                USING DC-CLIENT
+                                      DC-RESULT
+                        END-IF
                        GOBACK
                END-EVALUATE
            ELSE
@@ -117,9 +130,16 @@
                        IF DC-STATUS-CODE NOT = DC-STATUS-OK
                            GOBACK
                        END-IF
-                       CALL "DC-CLIENT-DISCONNECT"
-                           USING DC-CLIENT
-                                 DC-RESULT
+                       IF FUNCTION TRIM(DC-CLIENT-SESSION-ID) NOT = SPACES
+                          AND DC-CLIENT-SEQUENCE > 0
+                           CALL "DC-GATEWAY-RECONNECT"
+                               USING DC-CLIENT
+                                     DC-RESULT
+                       ELSE
+                           CALL "DC-CLIENT-DISCONNECT"
+                               USING DC-CLIENT
+                                     DC-RESULT
+                       END-IF
                        GOBACK
                    END-IF
                ELSE
@@ -153,6 +173,19 @@
                      WS-NOW-CS
                      DC-RESULT
            IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+      *> JP: 予定時刻を過ぎても heartbeat ACK が戻らない場合は、
+      *> JP: 現在の session を stale とみなして reconnect へ進みます。
+      *> EN: If the scheduled heartbeat deadline has passed and no ACK has arrived,
+      *> EN: treat the current session as stale and reconnect.
+           IF DC-CLIENT-GW-AWAITING-ACK = 1
+              AND DC-CLIENT-GW-HEARTBEAT-NEXT-AT > 0
+              AND WS-NOW-CS >= DC-CLIENT-GW-HEARTBEAT-NEXT-AT
+               CALL "DC-GATEWAY-RECONNECT"
+                   USING DC-CLIENT
+                         DC-RESULT
                GOBACK
            END-IF
 

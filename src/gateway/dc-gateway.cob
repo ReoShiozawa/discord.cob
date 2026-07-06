@@ -92,6 +92,38 @@
        END PROGRAM DC-GATEWAY-CONNECT.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-GATEWAY-RECONNECT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-LOCAL-RESULT.
+          05 WS-LOCAL-STATUS-CODE PIC S9(9) COMP-5.
+          05 WS-LOCAL-ERROR-CODE PIC X(64).
+          05 WS-LOCAL-ERROR-MESSAGE PIC X(256).
+       01 WS-SEC-KEY PIC X(64).
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-CLIENT DC-RESULT.
+       MAIN.
+      *> JP: Gateway reconnect は、一度接続関連 state を閉じてから新しい WS session を開き直します。
+      *> JP: session_id と sequence は client 側に保持したままなので、HELLO 後に resume 判定へ戻れます。
+      *> EN: Gateway reconnect tears down connection-scoped state first and then opens
+      *> EN: a fresh WS session. The client keeps session_id and sequence so HELLO can
+      *> EN: route back into resume logic afterward.
+           MOVE DC-CLIENT-GW-WS-SEC-KEY TO WS-SEC-KEY
+           CALL "DC-CLIENT-DISCONNECT"
+               USING DC-CLIENT
+                     WS-LOCAL-RESULT
+           MOVE WS-SEC-KEY TO DC-CLIENT-GW-WS-SEC-KEY
+           CALL "DC-GATEWAY-CONNECT"
+               USING DC-CLIENT
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-GATEWAY-RECONNECT.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-GATEWAY-SESSION-LOAD.
 
        DATA DIVISION.

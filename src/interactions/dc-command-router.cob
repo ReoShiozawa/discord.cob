@@ -2,6 +2,8 @@
        PROGRAM-ID. DC-INTERACTION-ON-COMMAND.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-IDX PIC 9(4) COMP-5.
        LINKAGE SECTION.
        COPY "discord-client.cpy".
        01 DC-COMMAND-NAME-IN PIC X(128).
@@ -30,6 +32,17 @@
                    TO DC-ERROR-MESSAGE
                GOBACK
            END-IF
+
+           PERFORM VARYING WS-IDX FROM 1 BY 1
+               UNTIL WS-IDX > DC-IA-COMMAND-COUNT
+               IF FUNCTION TRIM(DC-IA-COMMAND-NAME(WS-IDX))
+                   = FUNCTION TRIM(DC-COMMAND-NAME-IN)
+                   MOVE DC-PROGRAM-NAME-IN
+                       TO DC-IA-COMMAND-PROGRAM(WS-IDX)
+                   CALL "DC-RESULT-OK" USING DC-RESULT
+                   GOBACK
+               END-IF
+           END-PERFORM
            IF DC-IA-COMMAND-COUNT >= 100
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_HANDLER_TABLE_FULL" TO DC-ERROR-CODE
@@ -51,6 +64,8 @@
        PROGRAM-ID. DC-INTERACTION-ON-COMPONENT.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-IDX PIC 9(4) COMP-5.
        LINKAGE SECTION.
        COPY "discord-client.cpy".
        01 DC-COMPONENT-ID-IN PIC X(128).
@@ -79,6 +94,17 @@
                    TO DC-ERROR-MESSAGE
                GOBACK
            END-IF
+
+           PERFORM VARYING WS-IDX FROM 1 BY 1
+               UNTIL WS-IDX > DC-IA-COMPONENT-COUNT
+               IF FUNCTION TRIM(DC-IA-COMPONENT-ID(WS-IDX))
+                   = FUNCTION TRIM(DC-COMPONENT-ID-IN)
+                   MOVE DC-PROGRAM-NAME-IN
+                       TO DC-IA-COMPONENT-PROGRAM(WS-IDX)
+                   CALL "DC-RESULT-OK" USING DC-RESULT
+                   GOBACK
+               END-IF
+           END-PERFORM
            IF DC-IA-COMPONENT-COUNT >= 100
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_HANDLER_TABLE_FULL" TO DC-ERROR-CODE
@@ -100,6 +126,8 @@
        PROGRAM-ID. DC-INTERACTION-ON-MODAL.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-IDX PIC 9(4) COMP-5.
        LINKAGE SECTION.
        COPY "discord-client.cpy".
        01 DC-MODAL-ID-IN PIC X(128).
@@ -128,6 +156,17 @@
                    TO DC-ERROR-MESSAGE
                GOBACK
            END-IF
+
+           PERFORM VARYING WS-IDX FROM 1 BY 1
+               UNTIL WS-IDX > DC-IA-MODAL-COUNT
+               IF FUNCTION TRIM(DC-IA-MODAL-ID(WS-IDX))
+                   = FUNCTION TRIM(DC-MODAL-ID-IN)
+                   MOVE DC-PROGRAM-NAME-IN
+                       TO DC-IA-MODAL-PROGRAM(WS-IDX)
+                   CALL "DC-RESULT-OK" USING DC-RESULT
+                   GOBACK
+               END-IF
+           END-PERFORM
            IF DC-IA-MODAL-COUNT >= 100
                MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
                MOVE "DC_ERR_HANDLER_TABLE_FULL" TO DC-ERROR-CODE
@@ -307,6 +346,16 @@
                        USING DC-CLIENT
                              DC-INTERACTION
                              DC-RESULT
+               WHEN "/pause"
+                   CALL "DC-MUSIC-CMD-PAUSE"
+                       USING DC-CLIENT
+                             DC-INTERACTION
+                             DC-RESULT
+               WHEN "/resume"
+                   CALL "DC-MUSIC-CMD-RESUME"
+                       USING DC-CLIENT
+                             DC-INTERACTION
+                             DC-RESULT
                WHEN "/stop"
                    CALL "DC-MUSIC-CMD-STOP"
                        USING DC-CLIENT
@@ -314,6 +363,21 @@
                              DC-RESULT
                WHEN "/queue"
                    CALL "DC-MUSIC-CMD-QUEUE"
+                       USING DC-CLIENT
+                             DC-INTERACTION
+                             DC-RESULT
+               WHEN "/remove"
+                   CALL "DC-MUSIC-CMD-REMOVE"
+                       USING DC-CLIENT
+                             DC-INTERACTION
+                             DC-RESULT
+               WHEN "/clearqueue"
+                   CALL "DC-MUSIC-CMD-CLEARQUEUE"
+                       USING DC-CLIENT
+                             DC-INTERACTION
+                             DC-RESULT
+               WHEN "/nowplaying"
+                   CALL "DC-MUSIC-CMD-NOWPLAYING"
                        USING DC-CLIENT
                              DC-INTERACTION
                              DC-RESULT

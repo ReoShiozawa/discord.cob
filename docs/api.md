@@ -28,6 +28,36 @@ CALL "DC-DISPATCH"
     USING DC-CLIENT
           DC-EVENT
           DC-RESULT.
+
+CALL "DC-BOT-REGISTER-DEFAULTS"
+    USING DC-CLIENT
+          DC-RESULT.
+
+CALL "DC-BOT-TICK"
+    USING DC-CLIENT
+          DC-RESULT.
+
+CALL "DC-BOT-RUN-STEPS"
+    USING DC-CLIENT
+          STEP-COUNT
+          WAIT-MS
+          DC-RESULT.
+
+CALL "DC-BOT-RUN"
+    USING DC-CLIENT
+          STEP-COUNT
+          WAIT-MS
+          DC-RESULT.
+
+CALL "DC-BOT-RUN-UNTIL-FILE"
+    USING DC-CLIENT
+          STOP-FILE
+          WAIT-MS
+          DC-RESULT.
+
+CALL "DC-BOT-SHUTDOWN"
+    USING DC-CLIENT
+          DC-RESULT.
 ```
 
 Handlers are normal COBOL programs.
@@ -35,6 +65,13 @@ Handlers are normal COBOL programs.
 ```cobol
 PROCEDURE DIVISION USING DC-CLIENT DC-EVENT DC-RESULT.
 ```
+
+`DC-BOT-REGISTER-DEFAULTS` wires the framework-provided voice and interaction handlers.
+`DC-BOT-TICK` advances Gateway and all stored voice sessions once.
+`DC-BOT-RUN-STEPS` repeats that high-level tick a fixed number of times.
+`DC-BOT-RUN` does the same, but `STEP-COUNT <= 0` keeps the process loop running until it is stopped externally.
+`DC-BOT-RUN-UNTIL-FILE` keeps the same loop running until the given stop-file path appears on disk.
+`DC-BOT-SHUTDOWN` explicitly tears down stored voice/music runtimes and disconnects the Gateway session.
 
 ## JSON
 
@@ -76,9 +113,8 @@ CALL "DC-RTP-ADVANCE"
           DC-RESULT.
 ```
 
-The current packet builder is still the unencrypted core.
-`DC-VOICE-SEND-FRAME` can send that raw RTP payload over UDP for local tests when no encryption mode has been negotiated yet.
-Once Voice session description negotiates an encryption mode, send attempts currently fail fast until the AEAD layer is implemented.
+The current packet builder is still the unencrypted RTP core.
+`DC-VOICE-SEND-FRAME` can send that raw RTP payload before encryption is negotiated, and it can also encrypt voice payloads for the currently supported Discord mode `aead_xchacha20_poly1305_rtpsize`.
 
 ## UDP
 
@@ -237,6 +273,55 @@ Current coverage:
 - opt-in live TLS-backed connect/send/recv
 - ping to pong auto-response
 - close frame state handling
+
+## Voice / Music Runtime
+
+The voice and music layers now expose guild-scoped stored-session helpers in addition
+to the lower-level live session APIs.
+
+```cobol
+CALL "DC-VOICE-REGISTER"
+    USING DC-CLIENT
+          DC-RESULT.
+
+CALL "DC-VOICE-SESSION-LOAD"
+    USING GUILD-ID
+          DC-VOICE-SESSION
+          DC-RESULT.
+
+CALL "DC-VOICE-SESSION-SAVE"
+    USING GUILD-ID
+          DC-VOICE-SESSION
+          DC-RESULT.
+
+CALL "DC-VOICE-EVENT-LOOP-TICK-STORED"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+
+CALL "DC-VOICE-EVENT-LOOP-TICK-ALL"
+    USING DC-CLIENT
+          DC-RESULT.
+
+CALL "DC-MUSIC-VOICE-TICK-STORED"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+
+CALL "DC-MUSIC-BOT-BOOTSTRAP"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+```
+
+Current behavior:
+
+- Gateway voice events populate stored voice sessions by guild
+- stored voice ticks can auto-connect a Voice Gateway session when `endpoint` is ready
+- music playback can advance through the stored-session path without the caller
+  manually keeping a live `DC-VOICE-SESSION`
+- `DC-MUSIC-BOT-BOOTSTRAP` performs default handler registration and command overwrite
+- guild-scoped music runtimes can auto-queue a voice leave after a configurable number of idle bot ticks
 
 Not yet covered:
 
@@ -492,6 +577,42 @@ CALL "DC-INTERACTION-BUILD-UPDATE"
           REPLY-PAYLOAD
           DC-RESULT.
 
+CALL "DC-IA-BUILD-EMBED"
+    USING EMBED-TITLE
+          EMBED-DESCRIPTION
+          EMBED-COLOR
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-IA-BUILD-ECOMP"
+    USING EMBED-TITLE
+          EMBED-DESCRIPTION
+          EMBED-COLOR
+          COMPONENTS-JSON
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-IA-BUILD-UEMB"
+    USING EMBED-TITLE
+          EMBED-DESCRIPTION
+          EMBED-COLOR
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-IA-BUILD-UECMP"
+    USING EMBED-TITLE
+          EMBED-DESCRIPTION
+          EMBED-COLOR
+          COMPONENTS-JSON
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-IA-BUILD-UPDATE-COMP"
+    USING REPLY-CONTENT
+          COMPONENTS-JSON
+          REPLY-PAYLOAD
+          DC-RESULT.
+
 CALL "DC-INTERACTION-BUILD-COMPONENT"
     USING REPLY-CONTENT
           COMPONENTS-JSON
@@ -526,6 +647,34 @@ CALL "DC-INTERACTION-FOLLOWUP"
     USING DC-CLIENT
           DC-INTERACTION
           REPLY-PAYLOAD
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-WAIT-BUILD"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-WAIT"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-GET-BUILD"
+    USING DC-CLIENT
+          DC-INTERACTION
+          MESSAGE-ID
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-GET"
+    USING DC-CLIENT
+          DC-INTERACTION
+          MESSAGE-ID
           DC-HTTP-RESPONSE
           DC-RESULT.
 
@@ -570,6 +719,18 @@ CALL "DC-INTERACTION-ORIG-EDIT"
     USING DC-CLIENT
           DC-INTERACTION
           REPLY-PAYLOAD
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-ORIG-GET-BUILD"
+    USING DC-CLIENT
+          DC-INTERACTION
+          DC-HTTP-REQUEST
+          DC-RESULT.
+
+CALL "DC-INTERACTION-ORIG-GET"
+    USING DC-CLIENT
+          DC-INTERACTION
           DC-HTTP-RESPONSE
           DC-RESULT.
 
@@ -619,9 +780,11 @@ Current coverage:
 - raw and wrapped `INTERACTION_CREATE` JSON parsing
 - application command, component, and modal-submit field extraction
 - custom command, component, and modal handler registration plus dispatch
-- slash-command routing into `/join`, `/leave`, `/play`, `/skip`, `/stop`, and `/queue`
-- immediate, update, modal, ephemeral, and deferred response payload construction
-- callback, follow-up create/edit/delete, and original-response edit/delete HTTP helpers
+- slash-command routing into `/join`, `/leave`, `/play`, `/skip`, `/pause`, `/resume`, `/stop`, `/queue`, `/remove`, `/clearqueue`, and `/nowplaying`
+- immediate, embed, update, modal, ephemeral, and deferred response payload construction
+- JSON-safe escaping for reply, embed, update, and follow-up content payloads
+- music-specific custom interaction handlers for `/nowplaying` and `/queue` with button rows and embed-based panel replies
+- callback, follow-up create/wait/get/edit/delete, and original-response get/edit/delete HTTP helpers
 - component select and modal input value lookup helpers
 - dispatcher-friendly handler registration through `DC-INTERACTION-REGISTER`
 
@@ -691,13 +854,18 @@ CALL "DC-MUSIC-COMMANDS-OVERWRITE"
     USING DC-CLIENT
           GUILD-ID
           DC-RESULT.
+
+CALL "DC-MUSIC-INTERACTIONS-REGISTER"
+    USING DC-CLIENT
+          DC-RESULT.
 ```
 
 Current coverage:
 
 - global or guild-scoped command registration, listing, deletion, and bulk overwrite over REST
 - request building with bot authorization and versioned Discord paths
-- built-in bootstrap registration and bulk overwrite helpers for `/join`, `/leave`, `/play`, `/skip`, `/stop`, and `/queue`
+- built-in bootstrap registration and bulk overwrite helpers for `/join`, `/leave`, `/play`, `/skip`, `/pause`, `/resume`, `/stop`, `/queue`, `/remove`, `/clearqueue`, and `/nowplaying`
+- built-in registration of the richer `/nowplaying` custom handler plus `music:skip`, `music:pause`, and `music:resume` component handlers
 - mock-backed slash-command REST tests through the shared TLS/HTTP transport
 
 ## Music Queue
@@ -734,6 +902,16 @@ CALL "DC-MUSIC-SKIP"
           GUILD-ID
           DC-RESULT.
 
+CALL "DC-MUSIC-PAUSE"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+
+CALL "DC-MUSIC-RESUME"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+
 CALL "DC-MUSIC-STOP"
     USING DC-CLIENT
           GUILD-ID
@@ -743,6 +921,24 @@ CALL "DC-MUSIC-QUEUE-LIST"
     USING DC-CLIENT
           GUILD-ID
           DC-MUSIC-QUEUE
+          DC-RESULT.
+
+CALL "DC-MUSIC-REMOVE"
+    USING DC-CLIENT
+          GUILD-ID
+          POSITION
+          DC-MUSIC-TRACK
+          DC-RESULT.
+
+CALL "DC-MUSIC-CLEARQUEUE"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-RESULT.
+
+CALL "DC-MUSIC-NOWPLAYING"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-MUSIC-TRACK
           DC-RESULT.
 
 CALL "DC-MUSIC-VOICE-TICK"
@@ -756,10 +952,19 @@ Current coverage:
 - queue-backed `/play file:<path>` command routing
 - per-guild music runtime state
 - Voice tick integration that can open queued Ogg Opus sources and send raw or encrypted RTP frames in fixture/local tests
-- queue inspection, skip, and stop primitives
+- queue inspection, queue removal/clear, now-playing lookup, pause/resume, skip, and stop primitives
+- a custom `/nowplaying` interaction panel with inline skip/pause/resume buttons
+- a custom `/queue` interaction panel with remove-first, clear, refresh, and now-playing navigation buttons
+- idle playback runtimes can now auto-leave voice after a configurable number of idle ticks
 
 Current limitations:
 
-- live Discord playback still stops at negotiated voice encryption
-- higher-level JSON-safe reply composition for embeds/components still needs builder sugar
-- follow-up retrieval / wait-mode helpers are not implemented yet
+- live Discord playback still depends on the current negotiated voice-session path
+- higher-level embed-focused reply builders still need dedicated sugar
+
+The new `examples/08-play-opus-file/main.cob` shows the current direct live-oriented path for:
+
+- registering the default voice and interaction handlers
+- logging in over the Gateway runtime
+- queueing a local Opus/Ogg Opus source with `DC-MUSIC-PLAY`
+- advancing the bot loop with `DC-BOT-RUN` or `DC-BOT-RUN-UNTIL-FILE`

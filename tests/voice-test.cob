@@ -8,6 +8,7 @@
        DATA DIVISION.
        WORKING-STORAGE SECTION.
        COPY "discord-client.cpy".
+       COPY "discord-event.cpy".
        COPY "discord-voice.cpy".
        COPY "discord-net.cpy".
        COPY "discord-rtp.cpy".
@@ -37,13 +38,20 @@
            PERFORM TEST-STATE-UPDATE
            PERFORM TEST-SERVER-UPDATE
            PERFORM TEST-VOICE-NEXT-IDENTIFY
+           PERFORM TEST-VOICE-SESSION-STORE
            PERFORM TEST-VOICE-STATE-UPDATE-BUILD
            PERFORM TEST-VOICE-IDENTIFY-BUILD
            PERFORM TEST-SELECT-PROTOCOL-BUILD
            PERFORM TEST-SPEAKING-BUILD
            PERFORM TEST-VOICE-WS-REQUEST
            PERFORM TEST-VOICE-GATEWAY-CONNECT
+           PERFORM TEST-VOICE-GATEWAY-RECONNECT
            PERFORM TEST-VOICE-EVENT-LOOP
+           PERFORM TEST-VOICE-DISPATCH-HANDLERS
+           PERFORM TEST-STORED-VOICE-AUTO-CONNECT
+           PERFORM TEST-STORED-VOICE-TICK
+           PERFORM TEST-VOICE-TICK-ALL
+           PERFORM TEST-BOT-TICK
            PERFORM TEST-VOICE-JOIN-LEAVE
            PERFORM TEST-VOICE-HANDLE-PAYLOAD
            PERFORM TEST-VOICE-NEXT-HEARTBEAT
@@ -53,6 +61,7 @@
            PERFORM TEST-VOICE-SEND-FRAME
            PERFORM TEST-VOICE-NEXT-RESUME
            PERFORM TEST-VOICE-RESUME-BUILD
+           PERFORM TEST-VOICE-STALE-HEARTBEAT-TICK
            PERFORM FINISH-TEST.
 
        TEST-SESSION-INIT.
@@ -119,6 +128,68 @@
                DISPLAY "voice-test: voice identify flag not cleared"
                ADD 1 TO WS-FAILURES
            END-IF.
+
+       TEST-VOICE-SESSION-STORE.
+           CALL "DC-VOICE-SESSION-CLEAR"
+               USING WS-GUILD-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           CALL "DC-VOICE-SESSION-INIT"
+               USING DC-VOICE-SESSION
+                     WS-GUILD-ID
+                     WS-CHANNEL-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "voice-sess" TO DC-VS-SESSION-ID
+           CALL "DC-VOICE-SESSION-SAVE"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           INITIALIZE DC-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-VS-CHANNEL-ID) NOT = "chan-1"
+               DISPLAY "voice-test: stored channel mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-VS-SESSION-ID) NOT = "voice-sess"
+               DISPLAY "voice-test: stored session mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           CALL "DC-VOICE-SESSION-CLEAR"
+               USING WS-GUILD-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-NOT-FOUND
+               DISPLAY "voice-test: clear did not remove session"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+      *> JP: 後続テストが引き続き endpoint/token を使えるよう、基本 session を戻しておきます。
+      *> EN: Restore the baseline session so downstream tests can keep using endpoint/token fields.
+           CALL "DC-VOICE-SESSION-INIT"
+               USING DC-VOICE-SESSION
+                     WS-GUILD-ID
+                     WS-CHANNEL-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE '{"d":{"session_id":"voice-sess"}}' TO WS-JSON
+           CALL "DC-VOICE-APPLY-STATE-UPDATE"
+               USING WS-JSON DC-VOICE-SESSION DC-RESULT
+           PERFORM CHECK-OK
+           MOVE '{"d":{"token":"voice-token","endpoint":"voice.example.test"}}'
+               TO WS-JSON
+           CALL "DC-VOICE-APPLY-SERVER-UPDATE"
+               USING WS-JSON DC-VOICE-SESSION DC-RESULT
+           PERFORM CHECK-OK.
 
        TEST-VOICE-STATE-UPDATE-BUILD.
            MOVE SPACES TO WS-PAYLOAD
@@ -246,6 +317,37 @@
            PERFORM CHECK-OK
            IF DC-HTTP-BUFFER-DATA(1:16) NOT = "GET /?v=8 HTTP/1"
                DISPLAY "voice-test: voice handshake request mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-VOICE-GATEWAY-RECONNECT.
+           PERFORM INIT-LIVE-VOICE-SESSION
+           CALL "DC-VOICE-GATEWAY-CONNECT"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE 11 TO DC-VS-LAST-SEQ
+           PERFORM PREPARE-LIVE-VOICE-FIXTURES
+           CALL "DC-VOICE-GATEWAY-RECONNECT"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-VS-STATE NOT = 5
+               DISPLAY "voice-test: voice reconnect state mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-WS-OPEN-FLAG NOT = 1
+               DISPLAY "voice-test: voice reconnect did not reopen session"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-RESUME-REQUESTED NOT = 1
+               DISPLAY "voice-test: voice reconnect did not request resume"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-VS-SESSION-ID) NOT = "voice-sess"
+               DISPLAY "voice-test: voice reconnect lost session id"
                ADD 1 TO WS-FAILURES
            END-IF.
 
@@ -382,6 +484,232 @@
                ADD 1 TO WS-FAILURES
            END-IF.
 
+       TEST-VOICE-DISPATCH-HANDLERS.
+           INITIALIZE DC-CONFIG
+           MOVE "token" TO DC-BOT-TOKEN
+           CALL "DC-CLIENT-INIT"
+               USING DC-CONFIG DC-CLIENT DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "user-1" TO DC-CLIENT-USER-ID
+           CALL "DC-VOICE-SESSION-CLEAR"
+               USING WS-GUILD-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           CALL "DC-VOICE-REGISTER"
+               USING DC-CLIENT
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HANDLER-COUNT NOT = 2
+               DISPLAY "voice-test: voice register count mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HANDLER-EVENT-NAME(1))
+               NOT = "VOICE_STATE_UPDATE"
+               DISPLAY "voice-test: voice register state event mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HANDLER-PROGRAM(1))
+               NOT = "DC-VOICE-STATE-EVENT-HANDLER"
+               DISPLAY "voice-test: voice register state handler mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HANDLER-EVENT-NAME(2))
+               NOT = "VOICE_SERVER_UPDATE"
+               DISPLAY "voice-test: voice register server event mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-HANDLER-PROGRAM(2))
+               NOT = "DC-VS-SERVER-HANDLER"
+               DISPLAY "voice-test: voice register server handler mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-EVENT
+           MOVE "VOICE_STATE_UPDATE" TO DC-EVENT-NAME
+           MOVE
+               '{"op":0,"t":"VOICE_STATE_UPDATE","s":5,"d":{"guild_id":"guild-1","channel_id":"chan-1","user_id":"user-1","session_id":"voice-sess"}}'
+               TO DC-EVENT-PAYLOAD
+           MOVE FUNCTION LENGTH(FUNCTION TRIM(DC-EVENT-PAYLOAD TRAILING))
+               TO DC-EVENT-PAYLOAD-LENGTH
+           CALL "DC-VOICE-STATE-EVENT-HANDLER"
+               USING DC-CLIENT
+                     DC-EVENT
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           INITIALIZE DC-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-VS-SESSION-ID) NOT = "voice-sess"
+               DISPLAY "voice-test: dispatch state session mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-VS-CHANNEL-ID) NOT = "chan-1"
+               DISPLAY "voice-test: dispatch state channel mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-EVENT
+           MOVE "VOICE_SERVER_UPDATE" TO DC-EVENT-NAME
+           MOVE
+               '{"op":0,"t":"VOICE_SERVER_UPDATE","s":6,"d":{"guild_id":"guild-1","token":"voice-token","endpoint":"voice.example.test"}}'
+               TO DC-EVENT-PAYLOAD
+           MOVE FUNCTION LENGTH(FUNCTION TRIM(DC-EVENT-PAYLOAD TRAILING))
+               TO DC-EVENT-PAYLOAD-LENGTH
+           CALL "DC-VS-SERVER-HANDLER"
+               USING DC-CLIENT
+                     DC-EVENT
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           INITIALIZE DC-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-VS-TOKEN) NOT = "voice-token"
+               DISPLAY "voice-test: dispatch server token mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-VS-ENDPOINT) NOT = "voice.example.test"
+               DISPLAY "voice-test: dispatch server endpoint mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-IDENTIFY-NEEDED NOT = 1
+               DISPLAY "voice-test: dispatch server identify mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-STORED-VOICE-TICK.
+           PERFORM INIT-LIVE-VOICE-SESSION
+           CALL "DC-VOICE-GATEWAY-CONNECT"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE '{"op":8,"d":{"heartbeat_interval":1337}}' TO WS-JSON
+           PERFORM INJECT-VOICE-TEXT-FRAME
+           CALL "DC-VOICE-SESSION-SAVE"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           CALL "DC-VOICE-EVENT-LOOP-TICK-STORED"
+               USING DC-CLIENT
+                     WS-GUILD-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           INITIALIZE DC-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-VS-HEARTBEAT-INTERVAL NOT = 1337
+               DISPLAY "voice-test: stored tick heartbeat mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           PERFORM ASSERT-LAST-VOICE-FRAME
+           IF FUNCTION TRIM(DC-WS-PAYLOAD)
+               NOT = '{"op":0,"d":{"server_id":"guild-1","user_id":"user-1","session_id":"voice-sess","token":"voice-token","max_dave_protocol_version":0}}'
+               DISPLAY "voice-test: stored tick identify payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-STORED-VOICE-AUTO-CONNECT.
+           CALL "DC-VOICE-SESSION-CLEAR"
+               USING WS-GUILD-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM INIT-LIVE-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-SAVE"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           CALL "DC-VOICE-EVENT-LOOP-TICK-STORED"
+               USING DC-CLIENT
+                     WS-GUILD-ID
+                     DC-RESULT
+           PERFORM CHECK-OK
+           INITIALIZE DC-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-VS-WS-OPEN-FLAG NOT = 1
+               DISPLAY "voice-test: stored auto-connect ws flag mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-STATE NOT = 2
+               DISPLAY "voice-test: stored auto-connect state mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-VOICE-TICK-ALL.
+           PERFORM INIT-LIVE-VOICE-SESSION
+           CALL "DC-VOICE-GATEWAY-CONNECT"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE '{"op":8,"d":{"heartbeat_interval":1337}}' TO WS-JSON
+           PERFORM INJECT-VOICE-TEXT-FRAME
+           CALL "DC-VOICE-SESSION-SAVE"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           CALL "DC-VOICE-EVENT-LOOP-TICK-ALL"
+               USING DC-CLIENT
+                     DC-RESULT
+           PERFORM CHECK-OK
+           INITIALIZE DC-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-VS-HEARTBEAT-INTERVAL NOT = 1337
+               DISPLAY "voice-test: tick-all heartbeat mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-BOT-TICK.
+           PERFORM INIT-LIVE-VOICE-SESSION
+           CALL "DC-VOICE-GATEWAY-CONNECT"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE '{"op":8,"d":{"heartbeat_interval":1337}}' TO WS-JSON
+           PERFORM INJECT-VOICE-TEXT-FRAME
+           CALL "DC-VOICE-SESSION-SAVE"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE 0 TO DC-CLIENT-GW-WS-OPEN-FLAG
+           CALL "DC-BOT-TICK"
+               USING DC-CLIENT
+                     DC-RESULT
+           PERFORM CHECK-OK
+           INITIALIZE DC-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-VS-HEARTBEAT-INTERVAL NOT = 1337
+               DISPLAY "voice-test: bot tick heartbeat mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-VOICE-JOIN-LEAVE.
            INITIALIZE DC-CONFIG
            MOVE "token" TO DC-BOT-TOKEN
@@ -400,6 +728,16 @@
            PERFORM CHECK-OK
            IF DC-CLIENT-GW-COMMAND-QUEUED NOT = 1
                DISPLAY "voice-test: voice join queue flag mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           INITIALIZE DC-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-VS-CHANNEL-ID) NOT = "chan-1"
+               DISPLAY "voice-test: voice join stored channel mismatch"
                ADD 1 TO WS-FAILURES
            END-IF
 
@@ -441,6 +779,16 @@
                NOT = '{"op":4,"d":{"guild_id":"guild-1","channel_id":null,"self_mute":false,"self_deaf":false}}'
                DISPLAY "voice-test: voice leave queued payload mismatch"
                ADD 1 TO WS-FAILURES
+           END-IF
+           INITIALIZE DC-VOICE-SESSION
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING WS-GUILD-ID
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(DC-VS-CHANNEL-ID) NOT = SPACES
+               DISPLAY "voice-test: voice leave stored channel mismatch"
+               ADD 1 TO WS-FAILURES
            END-IF.
 
        TEST-VOICE-HANDLE-PAYLOAD.
@@ -453,7 +801,7 @@
                ADD 1 TO WS-FAILURES
            END-IF
 
-           MOVE '{"op":2,"d":{"ssrc":4242,"ip":"127.0.0.1","port":5000},"seq":9}'
+           MOVE '{"op":2,"d":{"ssrc":4242,"ip":"127.0.0.1","port":5000,"modes":["xsalsa20_poly1305","aead_xchacha20_poly1305_rtpsize"]},"seq":9}'
                TO WS-JSON
            CALL "DC-VOICE-HANDLE-PAYLOAD"
                USING DC-VOICE-SESSION WS-JSON DC-RESULT
@@ -476,6 +824,11 @@
            END-IF
            IF DC-VS-STATE NOT = 3
                DISPLAY "voice-test: voice ready state mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-VS-ENCRYPTION-MODE)
+               NOT = "aead_xchacha20_poly1305_rtpsize"
+               DISPLAY "voice-test: voice ready negotiated mode mismatch"
                ADD 1 TO WS-FAILURES
            END-IF
 
@@ -659,6 +1012,33 @@
                ADD 1 TO WS-FAILURES
            END-IF.
 
+           INITIALIZE DC-VOICE-SESSION
+           MOVE 0 TO DC-VS-COMMAND-QUEUED
+           MOVE "aead_xchacha20_poly1305_rtpsize"
+               TO DC-VS-ENCRYPTION-MODE
+           INITIALIZE DC-UDP-DISCOVERY
+           MOVE "203.0.113.5" TO DC-UD-DISCOVERED-IP
+           MOVE 65000 TO DC-UD-DISCOVERED-PORT
+           CALL "DC-VOICE-UDP-DISCOVERY-APPLY"
+               USING DC-VOICE-SESSION
+                     DC-UDP-DISCOVERY
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE SPACES TO WS-ACTION
+           MOVE SPACES TO WS-PAYLOAD
+           CALL "DC-VOICE-NEXT-PAYLOAD"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     WS-ACTION
+                     WS-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-PAYLOAD)
+               NOT = '{"op":1,"d":{"protocol":"udp","data":{"address":"203.0.113.5","port":65000,"mode":"aead_xchacha20_poly1305_rtpsize"}}}'
+               DISPLAY "voice-test: negotiated mode queued payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-VOICE-SEND-FRAME.
            INITIALIZE DC-VOICE-SESSION
            MOVE 1 TO DC-VS-READY-FLAG
@@ -819,6 +1199,41 @@
            IF FUNCTION TRIM(WS-PAYLOAD)
                NOT = '{"op":7,"d":{"server_id":"guild-1","session_id":"voice-sess","token":"voice-token"}}'
                DISPLAY "voice-test: voice resume payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-VOICE-STALE-HEARTBEAT-TICK.
+           PERFORM INIT-LIVE-VOICE-SESSION
+           CALL "DC-VOICE-GATEWAY-CONNECT"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE 1337 TO DC-VS-HEARTBEAT-INTERVAL
+           MOVE 1 TO DC-VS-AWAITING-ACK
+           MOVE 1 TO DC-VS-HEARTBEAT-NEXT-AT
+           PERFORM PREPARE-LIVE-VOICE-FIXTURES
+           MOVE '{"op":8,"d":{"heartbeat_interval":1337}}' TO WS-JSON
+           PERFORM INJECT-VOICE-TEXT-FRAME
+           CALL "DC-VOICE-EVENT-LOOP-TICK"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-VS-STATE NOT = 5
+               DISPLAY "voice-test: voice stale heartbeat reconnect state mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-WS-OPEN-FLAG NOT = 1
+               DISPLAY "voice-test: voice stale heartbeat did not reopen session"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-RESUME-REQUESTED NOT = 1
+               DISPLAY "voice-test: voice stale heartbeat resume flag mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-AWAITING-ACK NOT = 0
+               DISPLAY "voice-test: voice stale heartbeat ack flag not cleared"
                ADD 1 TO WS-FAILURES
            END-IF.
 

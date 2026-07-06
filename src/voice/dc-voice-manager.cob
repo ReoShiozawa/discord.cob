@@ -111,6 +111,11 @@
        WORKING-STORAGE SECTION.
        01 WS-ACTION PIC X(32) VALUE "VOICE_STATE_UPDATE".
        01 WS-PAYLOAD PIC X(8192).
+       COPY "discord-voice.cpy".
+       01 WS-LOCAL-RESULT.
+          05 WS-LOCAL-STATUS-CODE PIC S9(9) COMP-5.
+          05 WS-LOCAL-ERROR-CODE PIC X(64).
+          05 WS-LOCAL-ERROR-MESSAGE PIC X(256).
 
        LINKAGE SECTION.
        COPY "discord-client.cpy".
@@ -131,6 +136,42 @@
                MOVE "DC_ERR_GATEWAY_NOT_READY" TO DC-ERROR-CODE
                MOVE "Gateway client must be ready before voice join."
                    TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+      *> JP: join を投げる時点で guild/channel を持つ session を保存しておき、
+      *> JP: 後続の Gateway voice events がその entry を育てられるようにします。
+      *> EN: Persist a guild/channel session as soon as join is requested so
+      *> EN: subsequent Gateway voice events can enrich that same entry.
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING DC-VOICE-GUILD-ID-IN
+                     DC-VOICE-SESSION
+                     WS-LOCAL-RESULT
+           IF WS-LOCAL-STATUS-CODE = DC-STATUS-NOT-FOUND
+               CALL "DC-VOICE-SESSION-INIT"
+                   USING DC-VOICE-SESSION
+                         DC-VOICE-GUILD-ID-IN
+                         DC-VOICE-CHANNEL-ID-IN
+                         DC-RESULT
+               IF DC-STATUS-CODE NOT = DC-STATUS-OK
+                   GOBACK
+               END-IF
+           ELSE
+               IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+                   MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+                   MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+                   MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+                   GOBACK
+               END-IF
+               MOVE DC-VOICE-GUILD-ID-IN TO DC-VS-GUILD-ID
+               MOVE DC-VOICE-CHANNEL-ID-IN TO DC-VS-CHANNEL-ID
+           END-IF
+
+           CALL "DC-VOICE-SESSION-SAVE"
+               USING DC-VOICE-GUILD-ID-IN
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
                GOBACK
            END-IF
 
@@ -159,6 +200,11 @@
        01 WS-ACTION PIC X(32) VALUE "VOICE_STATE_UPDATE".
        01 WS-EMPTY-CHANNEL PIC X(32).
        01 WS-PAYLOAD PIC X(8192).
+       COPY "discord-voice.cpy".
+       01 WS-LOCAL-RESULT.
+          05 WS-LOCAL-STATUS-CODE PIC S9(9) COMP-5.
+          05 WS-LOCAL-ERROR-CODE PIC X(64).
+          05 WS-LOCAL-ERROR-MESSAGE PIC X(256).
 
        LINKAGE SECTION.
        COPY "discord-client.cpy".
@@ -177,6 +223,37 @@
                MOVE "DC_ERR_GATEWAY_NOT_READY" TO DC-ERROR-CODE
                MOVE "Gateway client must be ready before voice leave."
                    TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING DC-VOICE-GUILD-ID-IN
+                     DC-VOICE-SESSION
+                     WS-LOCAL-RESULT
+           IF WS-LOCAL-STATUS-CODE = DC-STATUS-NOT-FOUND
+               CALL "DC-VOICE-SESSION-INIT"
+                   USING DC-VOICE-SESSION
+                         DC-VOICE-GUILD-ID-IN
+                         WS-EMPTY-CHANNEL
+                         DC-RESULT
+               IF DC-STATUS-CODE NOT = DC-STATUS-OK
+                   GOBACK
+               END-IF
+           ELSE
+               IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+                   MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+                   MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+                   MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+                   GOBACK
+               END-IF
+               MOVE SPACES TO DC-VS-CHANNEL-ID
+           END-IF
+
+           CALL "DC-VOICE-SESSION-SAVE"
+               USING DC-VOICE-GUILD-ID-IN
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
                GOBACK
            END-IF
 

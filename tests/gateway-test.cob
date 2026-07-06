@@ -39,6 +39,7 @@
            PERFORM TEST-GATEWAY-WS-REQUEST
            PERFORM TEST-GATEWAY-CONNECT
            PERFORM TEST-LOGIN-TICK
+           PERFORM TEST-GATEWAY-RECONNECT
            PERFORM TEST-QUEUE-PAYLOAD
            PERFORM TEST-NEXT-HEARTBEAT
            PERFORM TEST-HEARTBEAT-SCHEDULE
@@ -47,6 +48,8 @@
            PERFORM TEST-IDENTIFY-BUILD
            PERFORM TEST-RESUME-BUILD
            PERFORM TEST-SYNTHETIC-OPS
+           PERFORM TEST-RECONNECT-TICK
+           PERFORM TEST-STALE-HEARTBEAT-TICK
            PERFORM FINISH-TEST.
 
        TEST-HELLO.
@@ -257,6 +260,34 @@
                ADD 1 TO WS-FAILURES
            END-IF.
 
+       TEST-GATEWAY-RECONNECT.
+           PERFORM INIT-LIVE-GATEWAY-CLIENT
+           CALL "DC-GATEWAY-CONNECT"
+               USING DC-CLIENT DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "sess-1" TO DC-CLIENT-SESSION-ID
+           MOVE 42 TO DC-CLIENT-SEQUENCE
+           PERFORM PREPARE-LIVE-GATEWAY-FIXTURES
+           CALL "DC-GATEWAY-RECONNECT"
+               USING DC-CLIENT DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-CLIENT-STATE NOT = 1
+               DISPLAY "gateway-test: reconnect state mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-CLIENT-GW-WS-OPEN-FLAG NOT = 1
+               DISPLAY "gateway-test: reconnect did not reopen session"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-CLIENT-SESSION-ID) NOT = "sess-1"
+               DISPLAY "gateway-test: reconnect lost session id"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-CLIENT-SEQUENCE NOT = 42
+               DISPLAY "gateway-test: reconnect lost sequence"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-QUEUE-PAYLOAD.
            MOVE
                '{"op":4,"d":{"guild_id":"guild-1","channel_id":"chan-1","self_mute":false,"self_deaf":false}}'
@@ -437,6 +468,58 @@
 	               DISPLAY "gateway-test: invalid session event mismatch"
 	               ADD 1 TO WS-FAILURES
 	           END-IF.
+
+       TEST-RECONNECT-TICK.
+           PERFORM INIT-LIVE-GATEWAY-CLIENT
+           CALL "DC-GATEWAY-CONNECT"
+               USING DC-CLIENT DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "sess-1" TO DC-CLIENT-SESSION-ID
+           MOVE 42 TO DC-CLIENT-SEQUENCE
+           PERFORM PREPARE-LIVE-GATEWAY-FIXTURES
+           MOVE '{"op":7}' TO WS-JSON
+           PERFORM INJECT-GATEWAY-TEXT-FRAME
+           CALL "DC-EVENT-LOOP-TICK"
+               USING DC-CLIENT DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-CLIENT-STATE NOT = 1
+               DISPLAY "gateway-test: reconnect tick state mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-CLIENT-GW-WS-OPEN-FLAG NOT = 1
+               DISPLAY "gateway-test: reconnect tick did not reopen session"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-STALE-HEARTBEAT-TICK.
+           PERFORM INIT-LIVE-GATEWAY-CLIENT
+           CALL "DC-GATEWAY-CONNECT"
+               USING DC-CLIENT DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "sess-1" TO DC-CLIENT-SESSION-ID
+           MOVE 42 TO DC-CLIENT-SEQUENCE
+           MOVE 41250 TO DC-CLIENT-GW-HEARTBEAT-INTERVAL
+           MOVE 1 TO DC-CLIENT-GW-AWAITING-ACK
+           MOVE 1 TO DC-CLIENT-GW-HEARTBEAT-NEXT-AT
+           PERFORM PREPARE-LIVE-GATEWAY-FIXTURES
+           MOVE '{"op":0,"t":"READY","s":42,"d":{"session_id":"sess-1","user":{"id":"user-1"}}}'
+               TO WS-JSON
+           PERFORM INJECT-GATEWAY-TEXT-FRAME
+           CALL "DC-EVENT-LOOP-TICK"
+               USING DC-CLIENT DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-CLIENT-STATE NOT = 1
+               DISPLAY "gateway-test: stale heartbeat reconnect state mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-CLIENT-GW-WS-OPEN-FLAG NOT = 1
+               DISPLAY "gateway-test: stale heartbeat did not reopen session"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-CLIENT-GW-AWAITING-ACK NOT = 0
+               DISPLAY "gateway-test: stale heartbeat ack flag not cleared"
+               ADD 1 TO WS-FAILURES
+           END-IF.
 
        CHECK-OK.
            IF DC-STATUS-CODE NOT = DC-STATUS-OK

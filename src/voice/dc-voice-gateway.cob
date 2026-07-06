@@ -66,6 +66,50 @@
        END PROGRAM DC-VOICE-GATEWAY-CONNECT.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-VOICE-GATEWAY-RECONNECT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-LOCAL-RESULT.
+          05 WS-LOCAL-STATUS-CODE PIC S9(9) COMP-5.
+          05 WS-LOCAL-ERROR-CODE PIC X(64).
+          05 WS-LOCAL-ERROR-MESSAGE PIC X(256).
+       01 WS-SEC-KEY PIC X(64).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-voice.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-CLIENT DC-VOICE-SESSION DC-RESULT.
+       MAIN.
+      *> JP: Voice reconnect は、現在の WS/UDP 実体を閉じてから
+      *> JP: session/token/endpoint を保ったまま新しい Voice WS を開き直します。
+      *> EN: Voice reconnect closes the current WS/UDP transport and then
+      *> EN: reopens a fresh Voice WS while preserving session/token/endpoint.
+           MOVE DC-VS-WS-SEC-KEY TO WS-SEC-KEY
+           CALL "DC-VOICE-DISCONNECT"
+               USING DC-VOICE-SESSION
+                     WS-LOCAL-RESULT
+           MOVE WS-SEC-KEY TO DC-VS-WS-SEC-KEY
+
+           CALL "DC-VOICE-GATEWAY-CONNECT"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+      *> JP: 新しい HELLO を受けた後は identify ではなく resume を優先させます。
+      *> EN: After the next HELLO, prefer resume instead of a fresh identify.
+           MOVE 1 TO DC-VS-RESUME-REQUESTED
+           MOVE 5 TO DC-VS-STATE
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-VOICE-GATEWAY-RECONNECT.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-VOICE-DISCONNECT.
 
        DATA DIVISION.
@@ -637,6 +681,11 @@
        01 WS-CURSOR PIC 9(5) COMP-5.
        01 WS-CHAR PIC X.
        01 WS-TEXT PIC X(512).
+       01 WS-MODE-VALUE-POS PIC 9(5) COMP-5.
+       01 WS-MODE-CURSOR PIC 9(5) COMP-5.
+       01 WS-MODE-LEN PIC 9(3) COMP-5.
+       01 WS-MODE-TEXT PIC X(64).
+       01 WS-SUPPORTED-MODE-FOUND PIC 9.
        01 WS-LOCAL-RESULT.
           05 WS-LOCAL-STATUS-CODE PIC S9(9) COMP-5.
           05 WS-LOCAL-ERROR-CODE PIC X(64).
@@ -703,6 +752,7 @@
            MOVE SPACES TO DC-VS-DISCOVERED-IP
            MOVE 0 TO DC-VS-DISCOVERED-PORT
            MOVE 0 TO DC-VS-UDP-HANDLE
+           MOVE SPACES TO DC-VS-ENCRYPTION-MODE
            MOVE "$.d.ssrc" TO WS-PATH
            CALL "DC-JSON-GET-NUMBER"
                USING DC-VOICE-JSON
@@ -731,8 +781,81 @@
                MOVE WS-NUMBER TO DC-VS-PORT
            END-IF
 
+           PERFORM APPLY-SUPPORTED-MODE
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
            MOVE 1 TO DC-VS-UDP-READY-FLAG
            MOVE 3 TO DC-VS-STATE.
+
+       APPLY-SUPPORTED-MODE.
+      *> JP: Voice Ready の modes 配列から、この実装が送信できる mode を選びます。
+      *> EN: Select a mode we can actually transmit from the Voice Ready modes array.
+           MOVE "$.d.modes" TO WS-PATH
+           CALL "DC-JSON-LOCATE-PATH"
+               USING DC-VOICE-JSON
+                     WS-PATH
+                     WS-MODE-VALUE-POS
+                     WS-LOCAL-RESULT
+           IF WS-LOCAL-STATUS-CODE = DC-STATUS-NOT-FOUND
+               MOVE "aead_xchacha20_poly1305_rtpsize"
+                   TO DC-VS-ENCRYPTION-MODE
+               EXIT PARAGRAPH
+           END-IF
+           IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+               MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+               MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+               MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+               EXIT PARAGRAPH
+           END-IF
+
+           IF DC-VOICE-JSON(WS-MODE-VALUE-POS:1) NOT = "["
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_VOICE_GATEWAY" TO DC-ERROR-CODE
+               MOVE "Voice modes must be a JSON array."
+                   TO DC-ERROR-MESSAGE
+               EXIT PARAGRAPH
+           END-IF
+
+           MOVE 0 TO WS-SUPPORTED-MODE-FOUND
+           COMPUTE WS-MODE-CURSOR = WS-MODE-VALUE-POS + 1
+           PERFORM UNTIL WS-MODE-CURSOR > 8192
+               MOVE DC-VOICE-JSON(WS-MODE-CURSOR:1) TO WS-CHAR
+               IF WS-CHAR = "]"
+                   EXIT PERFORM
+               END-IF
+               IF WS-CHAR = QUOTE
+                   ADD 1 TO WS-MODE-CURSOR
+                   MOVE 0 TO WS-MODE-LEN
+                   MOVE SPACES TO WS-MODE-TEXT
+                   PERFORM UNTIL WS-MODE-CURSOR > 8192
+                       MOVE DC-VOICE-JSON(WS-MODE-CURSOR:1) TO WS-CHAR
+                       IF WS-CHAR = QUOTE
+                           EXIT PERFORM
+                       END-IF
+                       ADD 1 TO WS-MODE-LEN
+                       IF WS-MODE-LEN <= 64
+                           MOVE WS-CHAR TO WS-MODE-TEXT(WS-MODE-LEN:1)
+                       END-IF
+                       ADD 1 TO WS-MODE-CURSOR
+                   END-PERFORM
+                   IF FUNCTION TRIM(WS-MODE-TEXT)
+                       = "aead_xchacha20_poly1305_rtpsize"
+                       MOVE WS-MODE-TEXT TO DC-VS-ENCRYPTION-MODE
+                       MOVE 1 TO WS-SUPPORTED-MODE-FOUND
+                       EXIT PERFORM
+                   END-IF
+               END-IF
+               ADD 1 TO WS-MODE-CURSOR
+           END-PERFORM
+
+           IF WS-SUPPORTED-MODE-FOUND NOT = 1
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_CRYPTO_MODE" TO DC-ERROR-CODE
+               MOVE "Voice Ready did not advertise a supported encryption mode."
+                   TO DC-ERROR-MESSAGE
+           END-IF.
 
        APPLY-SESSION-DESCRIPTION.
            MOVE "$.d.mode" TO WS-PATH

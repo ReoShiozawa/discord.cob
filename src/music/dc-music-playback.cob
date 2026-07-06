@@ -43,11 +43,13 @@
           05 WS-OPUS-DATA PIC X(4096).
           05 WS-OPUS-DURATION-MS PIC 9(3) COMP-5.
        01 WS-SPEAKING-ACTION PIC X(32) VALUE "SPEAKING".
+       01 WS-SPEAKING-STATE PIC 9 VALUE 0.
        01 WS-SPEAKING-PAYLOAD.
           05 WS-SPEAKING-FLAG PIC 9.
           05 WS-SPEAKING-DELAY PIC 9(10) COMP-5.
           05 WS-SPEAKING-SSRC PIC 9(10) COMP-5.
-       01 WS-SPEAKING-JSON PIC X(512).
+       01 WS-SPEAKING-JSON PIC X(8192).
+       01 WS-IDLE-TICK-COUNT PIC 9(9) COMP-5.
        01 WS-LOCAL-RESULT.
           05 WS-LOCAL-STATUS-CODE PIC S9(9) COMP-5.
           05 WS-LOCAL-ERROR-CODE PIC X(64).
@@ -90,7 +92,29 @@
                GOBACK
            END-IF
 
-           IF WS-PLAYER-STATE NOT = 1
+           MOVE 0 TO WS-IDLE-TICK-COUNT
+           CALL "DC-MUSIC-IDLE-COUNT-LOAD"
+               USING DC-VS-GUILD-ID
+                     WS-IDLE-TICK-COUNT
+                     WS-LOCAL-RESULT
+           IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+              AND WS-LOCAL-STATUS-CODE NOT = DC-STATUS-NOT-FOUND
+               MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+               MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+               MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           PERFORM HANDLE-IDLE-AUTO-LEAVE
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           IF FUNCTION TRIM(DC-VS-GUILD-ID) = SPACES
+               GOBACK
+           END-IF
+
+           IF (WS-PLAYER-STATE = 0
+               OR WS-PLAYER-STATE = 3)
               AND WS-MQ-SIZE > 0
               AND DC-VS-READY-FLAG = 1
               AND DC-VS-UDP-HANDLE > 0
@@ -105,6 +129,38 @@
                IF DC-STATUS-CODE NOT = DC-STATUS-OK
                    GOBACK
                END-IF
+           END-IF
+
+           IF WS-IDLE-TICK-COUNT NOT = 0
+              AND (WS-MQ-SIZE > 0
+              OR WS-PLAYER-STATE = 1
+              OR WS-PLAYER-STATE = 2)
+               MOVE 0 TO WS-IDLE-TICK-COUNT
+               CALL "DC-MUSIC-IDLE-COUNT-SAVE"
+                   USING DC-VS-GUILD-ID
+                         WS-IDLE-TICK-COUNT
+                         WS-LOCAL-RESULT
+               IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+                   MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+                   MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+                   MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+                   GOBACK
+               END-IF
+           END-IF
+
+      *> JP: paused 中は reader/RTP の位置を動かさず、state だけ保存して戻します。
+      *> EN: While paused, keep the reader/RTP position unchanged and only
+      *> EN: persist the current snapshot.
+           IF WS-PLAYER-STATE = 2
+               CALL "DC-MUSIC-STATE-SAVE"
+                   USING DC-VS-GUILD-ID
+                         WS-MUSIC-QUEUE
+                         WS-AUDIO-PLAYER
+                         WS-CURRENT-TRACK
+                         WS-RTP-STATE
+                         WS-OPUS-HANDLE
+                         DC-RESULT
+               GOBACK
            END-IF
 
            IF WS-PLAYER-STATE NOT = 1
@@ -163,6 +219,8 @@
                    GOBACK
                END-IF
                INITIALIZE WS-OPUS-HANDLE
+               MOVE 0 TO WS-SPEAKING-STATE
+               PERFORM QUEUE-SPEAKING-STATE
                CALL "DC-MUSIC-STATE-SAVE"
                    USING DC-VS-GUILD-ID
                          WS-MUSIC-QUEUE
@@ -268,15 +326,29 @@
            IF WS-PLAYER-FRAME-COUNT NOT = 0
                EXIT PARAGRAPH
            END-IF
-           IF DC-VS-COMMAND-QUEUED = 1
-               EXIT PARAGRAPH
-           END-IF
            IF DC-VS-SSRC <= 0
                EXIT PARAGRAPH
            END-IF
 
+           MOVE 1 TO WS-SPEAKING-STATE
+           PERFORM QUEUE-SPEAKING-STATE.
+
+       QUEUE-SPEAKING-STATE.
+      *> JP: speaking=true/false の両方を同じ queue 規約で扱います。
+      *> JP: queued speaking は新しい状態で上書きし、別種 control payload は邪魔しません。
+      *> EN: Both speaking=true and speaking=false use the same queue policy.
+      *> EN: Queued speaking payloads can be replaced by a newer speaking state,
+      *> EN: while other control payloads are left untouched.
+           IF DC-VS-SSRC <= 0
+               EXIT PARAGRAPH
+           END-IF
+           IF DC-VS-COMMAND-QUEUED = 1
+              AND FUNCTION TRIM(DC-VS-COMMAND-NAME) NOT = "SPEAKING"
+               EXIT PARAGRAPH
+           END-IF
+
            INITIALIZE WS-SPEAKING-PAYLOAD
-           MOVE 1 TO WS-SPEAKING-FLAG
+           MOVE WS-SPEAKING-STATE TO WS-SPEAKING-FLAG
            MOVE 0 TO WS-SPEAKING-DELAY
            MOVE DC-VS-SSRC TO WS-SPEAKING-SSRC
            MOVE SPACES TO WS-SPEAKING-JSON
@@ -289,9 +361,230 @@
                EXIT PARAGRAPH
            END-IF
 
+           IF DC-VS-COMMAND-QUEUED = 1
+              AND FUNCTION TRIM(DC-VS-COMMAND-NAME) = "SPEAKING"
+               MOVE WS-SPEAKING-ACTION TO DC-VS-COMMAND-NAME
+               MOVE WS-SPEAKING-JSON TO DC-VS-COMMAND-PAYLOAD
+               EXIT PARAGRAPH
+           END-IF
+
            CALL "DC-VOICE-QUEUE-PAYLOAD"
                USING DC-VOICE-SESSION
                      WS-SPEAKING-ACTION
                      WS-SPEAKING-JSON
                      WS-LOCAL-RESULT.
+
+       HANDLE-IDLE-AUTO-LEAVE.
+      *> JP: queue も current playback も空なら idle tick を数え、しきい値で自動退出します。
+      *> EN: If both the queue and current playback are empty, count idle ticks
+      *> EN: and auto-leave once the configured threshold is reached.
+           IF WS-MQ-SIZE > 0
+               EXIT PARAGRAPH
+           END-IF
+           IF WS-PLAYER-STATE = 1
+              OR WS-PLAYER-STATE = 2
+               EXIT PARAGRAPH
+           END-IF
+           IF FUNCTION TRIM(DC-VS-CHANNEL-ID) = SPACES
+               EXIT PARAGRAPH
+           END-IF
+           IF DC-CLIENT-MUSIC-IDLE-LEAVE-TICKS <= 0
+               EXIT PARAGRAPH
+           END-IF
+
+           ADD 1 TO WS-IDLE-TICK-COUNT
+           CALL "DC-MUSIC-IDLE-COUNT-SAVE"
+               USING DC-VS-GUILD-ID
+                     WS-IDLE-TICK-COUNT
+                     WS-LOCAL-RESULT
+           IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+               MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+               MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+               MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+               EXIT PARAGRAPH
+           END-IF
+
+           IF WS-IDLE-TICK-COUNT < DC-CLIENT-MUSIC-IDLE-LEAVE-TICKS
+               CALL "DC-MUSIC-STATE-SAVE"
+                   USING DC-VS-GUILD-ID
+                         WS-MUSIC-QUEUE
+                         WS-AUDIO-PLAYER
+                         WS-CURRENT-TRACK
+                         WS-RTP-STATE
+                         WS-OPUS-HANDLE
+                         DC-RESULT
+               EXIT PARAGRAPH
+           END-IF
+
+           MOVE 0 TO WS-SPEAKING-STATE
+           PERFORM QUEUE-SPEAKING-STATE
+           CALL "DC-VOICE-LEAVE"
+               USING DC-CLIENT
+                     DC-VS-GUILD-ID
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               EXIT PARAGRAPH
+           END-IF
+
+           CALL "DC-MUSIC-STATE-CLEAR"
+               USING DC-VS-GUILD-ID
+                     WS-LOCAL-RESULT
+           IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+               MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+               MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+               MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+               EXIT PARAGRAPH
+           END-IF
+
+           MOVE SPACES TO DC-VS-GUILD-ID
+           CALL "DC-RESULT-OK" USING DC-RESULT.
        END PROGRAM DC-MUSIC-VOICE-TICK.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-MUSIC-VOICE-TICK-STORED.
+       *> JP: 保存済み voice session を load して music tick を進め、更新後の session を戻します。
+       *> JP: 呼び出し側が live な DC-VOICE-SESSION を握らなくても guild id だけで tick できます。
+       *> EN: Load the stored voice session, run one music tick, then save the
+       *> EN: updated session back.
+       *> EN: This lets callers drive playback by guild id without holding a
+       *> EN: live DC-VOICE-SESSION structure themselves.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "discord-voice.cpy".
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       01 DC-MUSIC-GUILD-ID-IN PIC X(32).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-MUSIC-GUILD-ID-IN
+           DC-RESULT.
+       MAIN.
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING DC-MUSIC-GUILD-ID-IN
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-MUSIC-VOICE-TICK"
+               USING DC-CLIENT
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-VOICE-SESSION-SAVE"
+               USING DC-MUSIC-GUILD-ID-IN
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-MUSIC-VOICE-TICK-STORED.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-MUSIC-QUEUE-SPEAKING-STORED.
+       *> JP: 保存済み voice session に speaking 状態通知を queue します。
+       *> EN: Queue a speaking-state notification onto a stored voice session.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "discord-voice.cpy".
+       01 WS-SPEAKING-ACTION PIC X(32) VALUE "SPEAKING".
+       01 WS-SPEAKING-PAYLOAD.
+          05 WS-SPEAKING-FLAG PIC 9.
+          05 WS-SPEAKING-DELAY PIC 9(10) COMP-5.
+          05 WS-SPEAKING-SSRC PIC 9(10) COMP-5.
+       01 WS-SPEAKING-JSON PIC X(8192).
+       01 WS-LOCAL-RESULT.
+          05 WS-LOCAL-STATUS-CODE PIC S9(9) COMP-5.
+          05 WS-LOCAL-ERROR-CODE PIC X(64).
+          05 WS-LOCAL-ERROR-MESSAGE PIC X(256).
+
+       LINKAGE SECTION.
+       01 DC-MUSIC-GUILD-ID-IN PIC X(32).
+       01 DC-MUSIC-SPEAKING-FLAG PIC 9.
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-MUSIC-GUILD-ID-IN
+           DC-MUSIC-SPEAKING-FLAG
+           DC-RESULT.
+       MAIN.
+           IF FUNCTION TRIM(DC-MUSIC-GUILD-ID-IN) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_MUSIC_NOT_CONNECTED" TO DC-ERROR-CODE
+               MOVE "Music guild id is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           CALL "DC-VOICE-SESSION-LOAD"
+               USING DC-MUSIC-GUILD-ID-IN
+                     DC-VOICE-SESSION
+                     WS-LOCAL-RESULT
+           IF WS-LOCAL-STATUS-CODE = DC-STATUS-NOT-FOUND
+               CALL "DC-RESULT-OK" USING DC-RESULT
+               GOBACK
+           END-IF
+           IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+               MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+               MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+               MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           IF DC-VS-SSRC <= 0
+               CALL "DC-RESULT-OK" USING DC-RESULT
+               GOBACK
+           END-IF
+           IF DC-VS-COMMAND-QUEUED = 1
+              AND FUNCTION TRIM(DC-VS-COMMAND-NAME) NOT = "SPEAKING"
+               CALL "DC-RESULT-OK" USING DC-RESULT
+               GOBACK
+           END-IF
+
+           INITIALIZE WS-SPEAKING-PAYLOAD
+           MOVE DC-MUSIC-SPEAKING-FLAG TO WS-SPEAKING-FLAG
+           MOVE 0 TO WS-SPEAKING-DELAY
+           MOVE DC-VS-SSRC TO WS-SPEAKING-SSRC
+           MOVE SPACES TO WS-SPEAKING-JSON
+           CALL "DC-SPEAKING-BUILD"
+               USING WS-SPEAKING-PAYLOAD
+                     WS-SPEAKING-JSON
+                     WS-LOCAL-RESULT
+           IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+               MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+               MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+               MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           IF DC-VS-COMMAND-QUEUED = 1
+              AND FUNCTION TRIM(DC-VS-COMMAND-NAME) = "SPEAKING"
+               MOVE WS-SPEAKING-ACTION TO DC-VS-COMMAND-NAME
+               MOVE WS-SPEAKING-JSON TO DC-VS-COMMAND-PAYLOAD
+           ELSE
+               CALL "DC-VOICE-QUEUE-PAYLOAD"
+                   USING DC-VOICE-SESSION
+                         WS-SPEAKING-ACTION
+                         WS-SPEAKING-JSON
+                         WS-LOCAL-RESULT
+               IF WS-LOCAL-STATUS-CODE NOT = DC-STATUS-OK
+                   MOVE WS-LOCAL-STATUS-CODE TO DC-STATUS-CODE
+                   MOVE WS-LOCAL-ERROR-CODE TO DC-ERROR-CODE
+                   MOVE WS-LOCAL-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+                   GOBACK
+               END-IF
+           END-IF
+
+           CALL "DC-VOICE-SESSION-SAVE"
+               USING DC-MUSIC-GUILD-ID-IN
+                     DC-VOICE-SESSION
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-MUSIC-QUEUE-SPEAKING-STORED.

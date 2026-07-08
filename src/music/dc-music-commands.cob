@@ -1399,9 +1399,176 @@
        END PROGRAM DC-MUSIC-INTERACTIONS-REGISTER.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-MUSIC-COMMANDS-SCHEMA.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-CMD-NAME PIC X(32).
+       01 WS-CMD-DESC PIC X(100).
+       01 WS-OPT-NAME PIC X(32).
+       01 WS-OPT-TYPE PIC 9(4) COMP-5.
+       01 WS-OPT-DESC PIC X(100).
+       01 WS-OPT-REQUIRED PIC 9(4) COMP-5.
+
+       LINKAGE SECTION.
+       COPY "discord-command-schema.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING DC-COMMAND-SCHEMA DC-RESULT.
+       MAIN.
+           *> JP: 組み込み music command 群を構造化 schema として宣言します。
+           *> JP: contributor が command surface 全体を見渡すときの正本であり、
+           *> JP: 高水準 schema API (dc-command-schema.cob) の利用例でもあります。
+           *> EN: Declare the built-in music command set as a structured schema.
+           *> EN: This is the single place to inspect the whole command surface,
+           *> EN: and it doubles as the reference usage of the high-level schema
+           *> EN: API in dc-command-schema.cob.
+           CALL "DC-COMMAND-SCHEMA-INIT"
+               USING DC-COMMAND-SCHEMA
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           PERFORM DECLARE-JOIN
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-LEAVE
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-PLAY
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-SKIP
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-PAUSE
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-RESUME
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-STOP
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-QUEUE
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-REMOVE
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-CLEARQUEUE
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+           PERFORM DECLARE-NOWPLAYING
+           GOBACK.
+
+       DECLARE-JOIN.
+           MOVE "join" TO WS-CMD-NAME
+           MOVE "Join your current voice channel" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND.
+
+       DECLARE-LEAVE.
+           MOVE "leave" TO WS-CMD-NAME
+           MOVE "Leave the current voice channel" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND.
+
+       DECLARE-PLAY.
+           MOVE "play" TO WS-CMD-NAME
+           MOVE "Queue a local Ogg Opus file for playback"
+               TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               EXIT PARAGRAPH
+           END-IF
+           MOVE "file" TO WS-OPT-NAME
+           MOVE 3 TO WS-OPT-TYPE
+           MOVE "Path to a local .ogg or .opus file" TO WS-OPT-DESC
+           MOVE 1 TO WS-OPT-REQUIRED
+           PERFORM DECLARE-OPTION.
+
+       DECLARE-SKIP.
+           MOVE "skip" TO WS-CMD-NAME
+           MOVE "Skip the current track" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND.
+
+       DECLARE-PAUSE.
+           MOVE "pause" TO WS-CMD-NAME
+           MOVE "Pause the current track" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND.
+
+       DECLARE-RESUME.
+           MOVE "resume" TO WS-CMD-NAME
+           MOVE "Resume the paused track" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND.
+
+       DECLARE-STOP.
+           MOVE "stop" TO WS-CMD-NAME
+           MOVE "Stop playback" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND.
+
+       DECLARE-QUEUE.
+           MOVE "queue" TO WS-CMD-NAME
+           MOVE "Show queued tracks" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND.
+
+       DECLARE-REMOVE.
+           MOVE "remove" TO WS-CMD-NAME
+           MOVE "Remove a queued track by position" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               EXIT PARAGRAPH
+           END-IF
+           MOVE "index" TO WS-OPT-NAME
+           MOVE 4 TO WS-OPT-TYPE
+           MOVE "1-based queue position" TO WS-OPT-DESC
+           MOVE 1 TO WS-OPT-REQUIRED
+           PERFORM DECLARE-OPTION.
+
+       DECLARE-CLEARQUEUE.
+           MOVE "clearqueue" TO WS-CMD-NAME
+           MOVE "Clear all queued tracks" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND.
+
+       DECLARE-NOWPLAYING.
+           MOVE "nowplaying" TO WS-CMD-NAME
+           MOVE "Show the current track" TO WS-CMD-DESC
+           PERFORM DECLARE-COMMAND.
+
+       DECLARE-COMMAND.
+           CALL "DC-COMMAND-SCHEMA-ADD"
+               USING DC-COMMAND-SCHEMA
+                     WS-CMD-NAME
+                     WS-CMD-DESC
+                     DC-RESULT.
+
+       DECLARE-OPTION.
+           CALL "DC-COMMAND-SCHEMA-ADD-OPTION"
+               USING DC-COMMAND-SCHEMA
+                     WS-OPT-NAME
+                     WS-OPT-TYPE
+                     WS-OPT-DESC
+                     WS-OPT-REQUIRED
+                     DC-RESULT.
+       END PROGRAM DC-MUSIC-COMMANDS-SCHEMA.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-MUSIC-COMMANDS-BUILD-SET.
 
        DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "discord-command-schema.cpy".
+
        LINKAGE SECTION.
        01 DC-MUSIC-COMMANDS-JSON PIC X(8192).
        COPY "discord-result.cpy".
@@ -1409,59 +1576,23 @@
        PROCEDURE DIVISION USING DC-MUSIC-COMMANDS-JSON DC-RESULT.
        MAIN.
            *> JP: 一括 overwrite 用の完全な command set JSON を組み立てます。
-           *> JP: contributor が command surface 全体を見渡すときの正本でもあります。
+           *> JP: JSON の手組みはやめ、schema 宣言と共通変換 helper を経由します。
            *> EN: This builds the full command-set JSON used for bulk overwrite.
-           *> EN: It also serves as the single place to inspect the whole command surface.
+           *> EN: Instead of hand-written JSON, it goes through the schema
+           *> EN: declaration and the shared conversion helper.
            MOVE SPACES TO DC-MUSIC-COMMANDS-JSON
-           STRING
-               "[" DELIMITED BY SIZE
-               '{"name":"join","type":1,' DELIMITED BY SIZE
-               '"description":"Join your current voice channel"},'
-                   DELIMITED BY SIZE
-               '{"name":"leave","type":1,' DELIMITED BY SIZE
-               '"description":"Leave the current voice channel"},'
-                   DELIMITED BY SIZE
-               '{"name":"play","type":1,' DELIMITED BY SIZE
-               '"description":"Queue a local Ogg Opus file for playback",'
-                   DELIMITED BY SIZE
-               '"options":[{"name":"file","type":3,' DELIMITED BY SIZE
-               '"description":"Path to a local .ogg or .opus file",'
-                   DELIMITED BY SIZE
-               '"required":true}]},' DELIMITED BY SIZE
-               '{"name":"skip","type":1,' DELIMITED BY SIZE
-               '"description":"Skip the current track"},'
-                   DELIMITED BY SIZE
-               '{"name":"pause","type":1,' DELIMITED BY SIZE
-               '"description":"Pause the current track"},'
-                   DELIMITED BY SIZE
-               '{"name":"resume","type":1,' DELIMITED BY SIZE
-               '"description":"Resume the paused track"},'
-                   DELIMITED BY SIZE
-               '{"name":"stop","type":1,' DELIMITED BY SIZE
-               '"description":"Stop playback"},'
-                   DELIMITED BY SIZE
-               '{"name":"queue","type":1,' DELIMITED BY SIZE
-               '"description":"Show queued tracks"},'
-                   DELIMITED BY SIZE
-               '{"name":"remove","type":1,' DELIMITED BY SIZE
-               '"description":"Remove a queued track by position",'
-                   DELIMITED BY SIZE
-               '"options":[{"name":"index","type":4,' DELIMITED BY SIZE
-               '"description":"1-based queue position",'
-                   DELIMITED BY SIZE
-               '"required":true}]},' DELIMITED BY SIZE
-               '{"name":"clearqueue","type":1,' DELIMITED BY SIZE
-               '"description":"Clear all queued tracks"}'
-                   DELIMITED BY SIZE
-               "," DELIMITED BY SIZE
-               '{"name":"nowplaying","type":1,' DELIMITED BY SIZE
-               '"description":"Show the current track"}'
-                   DELIMITED BY SIZE
-               "]" DELIMITED BY SIZE
-               INTO DC-MUSIC-COMMANDS-JSON
-           END-STRING
 
-           CALL "DC-RESULT-OK" USING DC-RESULT
+           CALL "DC-MUSIC-COMMANDS-SCHEMA"
+               USING DC-COMMAND-SCHEMA
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-COMMAND-SCHEMA-TO-JSON"
+               USING DC-COMMAND-SCHEMA
+                     DC-MUSIC-COMMANDS-JSON
+                     DC-RESULT
            GOBACK.
        END PROGRAM DC-MUSIC-COMMANDS-BUILD-SET.
 

@@ -2,14 +2,18 @@
        PROGRAM-ID. SLASH-COMMAND-TEST.
        *> JP: slash command 用 HTTP builder 群の path/body 契約を検証するテストです。
        *> JP: register/list/delete/overwrite 系の request 形が崩れないことを見ます。
+       *> JP: 併せて高水準 command schema API の JSON 変換・検証・同期も見ます。
        *> EN: Test that verifies the path/body contracts of the slash-command HTTP builders.
        *> EN: It ensures request shapes for register, list, delete, and overwrite stay stable.
+       *> EN: It also covers the high-level command schema API: JSON conversion,
+       *> EN: validation, and synchronization.
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
        COPY "discord-client.cpy".
        COPY "discord-net.cpy".
        COPY "discord-result.cpy".
+       COPY "discord-command-schema.cpy".
        01 WS-COMMAND-JSON PIC X(8192)
            VALUE '{"name":"join","type":1,"description":"Join your current voice channel"}'.
        01 WS-QUEUE-COMMAND-JSON PIC X(8192)
@@ -25,6 +29,14 @@
        01 WS-NOWPLAYING-COMMAND-JSON PIC X(8192)
            VALUE '{"name":"nowplaying","type":1,"description":"Show the current track"}'.
        01 WS-COMMANDS-JSON PIC X(8192).
+       01 WS-SCHEMA-JSON PIC X(8192).
+       01 WS-SCHEMA-EXPECTED-JSON PIC X(8192).
+       01 WS-SCHEMA-CMD-NAME PIC X(32).
+       01 WS-SCHEMA-CMD-DESC PIC X(100).
+       01 WS-SCHEMA-OPT-NAME PIC X(32).
+       01 WS-SCHEMA-OPT-TYPE PIC 9(4) COMP-5.
+       01 WS-SCHEMA-OPT-DESC PIC X(100).
+       01 WS-SCHEMA-OPT-REQUIRED PIC 9(4) COMP-5.
        01 WS-LIST-BODY PIC X(8192).
        01 WS-OVERWRITE-BODY PIC X(8192).
        01 WS-COMMAND-ID PIC X(32) VALUE "cmd-1".
@@ -50,6 +62,12 @@
            PERFORM TEST-DELETE
            PERFORM TEST-OVERWRITE
            PERFORM TEST-REGISTER-ERROR
+           PERFORM TEST-SCHEMA-TO-JSON
+           PERFORM TEST-SCHEMA-EMPTY-ERROR
+           PERFORM TEST-SCHEMA-NAME-CASE-ERROR
+           PERFORM TEST-SCHEMA-ORPHAN-OPTION-ERROR
+           PERFORM TEST-SCHEMA-SYNC
+           PERFORM TEST-MUSIC-SCHEMA-JSON
            PERFORM TEST-MUSIC-COMMANDS-REGISTER
            PERFORM TEST-MUSIC-COMMANDS-OVERWRITE
            PERFORM TEST-MUSIC-BOT-BOOTSTRAP
@@ -348,6 +366,231 @@
            END-IF
            IF FUNCTION TRIM(DC-ERROR-CODE) NOT = "DC_ERR_HTTP"
                DISPLAY "slash-command-test: error code mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       BUILD-SAMPLE-SCHEMA.
+           *> JP: schema tests 共通の宣言。option 無しと option 付きを 1 件ずつ持ちます。
+           *> EN: Shared declaration for the schema tests: one command without
+           *> EN: options and one command with a required option.
+           CALL "DC-COMMAND-SCHEMA-INIT"
+               USING DC-COMMAND-SCHEMA
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "ping" TO WS-SCHEMA-CMD-NAME
+           MOVE "Check that the bot responds" TO WS-SCHEMA-CMD-DESC
+           CALL "DC-COMMAND-SCHEMA-ADD"
+               USING DC-COMMAND-SCHEMA
+                     WS-SCHEMA-CMD-NAME
+                     WS-SCHEMA-CMD-DESC
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "echo" TO WS-SCHEMA-CMD-NAME
+           MOVE "Echo a message back" TO WS-SCHEMA-CMD-DESC
+           CALL "DC-COMMAND-SCHEMA-ADD"
+               USING DC-COMMAND-SCHEMA
+                     WS-SCHEMA-CMD-NAME
+                     WS-SCHEMA-CMD-DESC
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "message" TO WS-SCHEMA-OPT-NAME
+           MOVE 3 TO WS-SCHEMA-OPT-TYPE
+           MOVE "Message to echo" TO WS-SCHEMA-OPT-DESC
+           MOVE 1 TO WS-SCHEMA-OPT-REQUIRED
+           CALL "DC-COMMAND-SCHEMA-ADD-OPTION"
+               USING DC-COMMAND-SCHEMA
+                     WS-SCHEMA-OPT-NAME
+                     WS-SCHEMA-OPT-TYPE
+                     WS-SCHEMA-OPT-DESC
+                     WS-SCHEMA-OPT-REQUIRED
+                     DC-RESULT
+           PERFORM CHECK-OK.
+
+       BUILD-SCHEMA-EXPECTED-JSON.
+           MOVE SPACES TO WS-SCHEMA-EXPECTED-JSON
+           STRING
+               "[" DELIMITED BY SIZE
+               '{"name":"ping","type":1,' DELIMITED BY SIZE
+               '"description":"Check that the bot responds"},'
+                   DELIMITED BY SIZE
+               '{"name":"echo","type":1,' DELIMITED BY SIZE
+               '"description":"Echo a message back",'
+                   DELIMITED BY SIZE
+               '"options":[{"name":"message","type":3,'
+                   DELIMITED BY SIZE
+               '"description":"Message to echo",' DELIMITED BY SIZE
+               '"required":true}]}' DELIMITED BY SIZE
+               "]" DELIMITED BY SIZE
+               INTO WS-SCHEMA-EXPECTED-JSON
+           END-STRING.
+
+       TEST-SCHEMA-TO-JSON.
+           PERFORM BUILD-SAMPLE-SCHEMA
+           PERFORM BUILD-SCHEMA-EXPECTED-JSON
+           MOVE SPACES TO WS-SCHEMA-JSON
+           CALL "DC-COMMAND-SCHEMA-TO-JSON"
+               USING DC-COMMAND-SCHEMA
+                     WS-SCHEMA-JSON
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-SCHEMA-JSON)
+               NOT = FUNCTION TRIM(WS-SCHEMA-EXPECTED-JSON)
+               DISPLAY "slash-command-test: schema json mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           *> JP: 同じ schema から 2 回変換しても payload が安定していることを見ます。
+           *> EN: Converting the same schema twice must yield the same payload.
+           MOVE SPACES TO WS-SCHEMA-JSON
+           CALL "DC-COMMAND-SCHEMA-TO-JSON"
+               USING DC-COMMAND-SCHEMA
+                     WS-SCHEMA-JSON
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-SCHEMA-JSON)
+               NOT = FUNCTION TRIM(WS-SCHEMA-EXPECTED-JSON)
+               DISPLAY "slash-command-test: schema json not stable"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-SCHEMA-EMPTY-ERROR.
+           CALL "DC-COMMAND-SCHEMA-INIT"
+               USING DC-COMMAND-SCHEMA
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE SPACES TO WS-SCHEMA-JSON
+           CALL "DC-COMMAND-SCHEMA-TO-JSON"
+               USING DC-COMMAND-SCHEMA
+                     WS-SCHEMA-JSON
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-ERROR
+               DISPLAY "slash-command-test: schema empty status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-ERROR-CODE)
+               NOT = "DC_ERR_COMMAND_SCHEMA"
+               DISPLAY "slash-command-test: schema empty code mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-SCHEMA-NAME-CASE-ERROR.
+           CALL "DC-COMMAND-SCHEMA-INIT"
+               USING DC-COMMAND-SCHEMA
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "Ping" TO WS-SCHEMA-CMD-NAME
+           MOVE "Check that the bot responds" TO WS-SCHEMA-CMD-DESC
+           CALL "DC-COMMAND-SCHEMA-ADD"
+               USING DC-COMMAND-SCHEMA
+                     WS-SCHEMA-CMD-NAME
+                     WS-SCHEMA-CMD-DESC
+                     DC-RESULT
+           PERFORM CHECK-OK
+           CALL "DC-COMMAND-SCHEMA-VALIDATE"
+               USING DC-COMMAND-SCHEMA
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-ERROR
+               DISPLAY "slash-command-test: schema case status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-ERROR-CODE)
+               NOT = "DC_ERR_COMMAND_SCHEMA"
+               DISPLAY "slash-command-test: schema case code mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-SCHEMA-ORPHAN-OPTION-ERROR.
+           CALL "DC-COMMAND-SCHEMA-INIT"
+               USING DC-COMMAND-SCHEMA
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "message" TO WS-SCHEMA-OPT-NAME
+           MOVE 3 TO WS-SCHEMA-OPT-TYPE
+           MOVE "Message to echo" TO WS-SCHEMA-OPT-DESC
+           MOVE 1 TO WS-SCHEMA-OPT-REQUIRED
+           CALL "DC-COMMAND-SCHEMA-ADD-OPTION"
+               USING DC-COMMAND-SCHEMA
+                     WS-SCHEMA-OPT-NAME
+                     WS-SCHEMA-OPT-TYPE
+                     WS-SCHEMA-OPT-DESC
+                     WS-SCHEMA-OPT-REQUIRED
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-ERROR
+               DISPLAY
+                   "slash-command-test: schema orphan status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-ERROR-CODE)
+               NOT = "DC_ERR_COMMAND_SCHEMA"
+               DISPLAY "slash-command-test: schema orphan code mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-SCHEMA-SYNC.
+           PERFORM BUILD-SAMPLE-SCHEMA
+           PERFORM BUILD-SCHEMA-EXPECTED-JSON
+           PERFORM PREPARE-OVERWRITE-RESPONSE
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-COMMAND-SCHEMA-SYNC"
+               USING DC-CLIENT
+                     WS-GUILD-ID
+                     DC-COMMAND-SCHEMA
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY "slash-command-test: schema sync status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:55)
+               NOT = "PUT /api/v10/applications/app-1/guilds/guild-1/commands"
+               DISPLAY "slash-command-test: schema sync path mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           COMPUTE WS-BODY-START =
+               FUNCTION LENGTH(FUNCTION TRIM(DC-HTTP-BUFFER-DATA TRAILING))
+               - FUNCTION LENGTH(
+                   FUNCTION TRIM(WS-SCHEMA-EXPECTED-JSON TRAILING))
+               + 1
+           IF WS-BODY-START < 1
+               DISPLAY
+                   "slash-command-test: schema sync body offset mismatch"
+               ADD 1 TO WS-FAILURES
+           ELSE
+               IF DC-HTTP-BUFFER-DATA(
+                   WS-BODY-START:
+                   FUNCTION LENGTH(
+                       FUNCTION TRIM(WS-SCHEMA-EXPECTED-JSON TRAILING)))
+                   NOT = FUNCTION TRIM(WS-SCHEMA-EXPECTED-JSON)
+                   DISPLAY "slash-command-test: schema sync body mismatch"
+                   ADD 1 TO WS-FAILURES
+               END-IF
+           END-IF.
+
+       TEST-MUSIC-SCHEMA-JSON.
+           *> JP: 組み込み music command set が schema API 経由でも従来と
+           *> JP: 同一の JSON になることを見ます。
+           *> EN: The built-in music command set must produce the same JSON
+           *> EN: through the schema API as before.
+           CALL "DC-MUSIC-COMMANDS-SCHEMA"
+               USING DC-COMMAND-SCHEMA
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE SPACES TO WS-SCHEMA-JSON
+           CALL "DC-COMMAND-SCHEMA-TO-JSON"
+               USING DC-COMMAND-SCHEMA
+                     WS-SCHEMA-JSON
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-SCHEMA-JSON)
+               NOT = FUNCTION TRIM(WS-COMMANDS-JSON)
+               DISPLAY "slash-command-test: music schema json mismatch"
                ADD 1 TO WS-FAILURES
            END-IF.
 

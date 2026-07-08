@@ -176,6 +176,8 @@
            PERFORM TEST-FOLLOWUP-WAIT-DELETE
            PERFORM TEST-ORIGINAL-GET
            PERFORM TEST-DISPATCH-HANDLER-REPLY
+           PERFORM TEST-DEFER-ORIGINAL-EDIT
+           PERFORM TEST-DEFER-ORIGINAL-DELETE
            PERFORM FINISH-TEST.
 
        WRITE-FIXTURE.
@@ -2439,6 +2441,80 @@
                    DISPLAY "interaction-test: dispatch callback body mismatch"
                    ADD 1 TO WS-FAILURES
                END-IF
+           END-IF.
+
+       TEST-DEFER-ORIGINAL-EDIT.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-ORIGINAL-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-DEFER-EDIT"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-ORIGINAL-EDIT-PAYLOAD
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY "interaction-test: defer original edit status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:63)
+               NOT =
+               "PATCH /api/v10/webhooks/app-1/tok-1/messages/@original HTTP/1.1"
+               DISPLAY
+                   "interaction-test: defer original edit request mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-DEFER-ORIGINAL-DELETE.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-ORIGINAL-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-DEFER-DEL"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY
+                   "interaction-test: defer original delete status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:64)
+               NOT =
+               "DELETE /api/v10/webhooks/app-1/tok-1/messages/@original HTTP/1.1"
+               DISPLAY
+                   "interaction-test: defer original delete request mismatch"
+               ADD 1 TO WS-FAILURES
            END-IF.
 
        PREPARE-CALLBACK-FIXTURE.

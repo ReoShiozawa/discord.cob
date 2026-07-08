@@ -1496,6 +1496,109 @@
        END PROGRAM DC-INTERACTION-DEFER.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-DEFER-EDIT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-DEFER-RESPONSE.
+          05 WS-DEFER-STATUS-CODE PIC 9(3) COMP-5.
+          05 WS-DEFER-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 WS-DEFER-RAW-HEADERS PIC X(4096).
+          05 WS-DEFER-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 WS-DEFER-RESPONSE-BODY PIC X(8192).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-EDIT-PAYLOAD PIC X(8192).
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-EDIT-PAYLOAD
+           LK-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+      *> JP: defer callback を返したあと、その original response を edit します。
+      *> EN: Send a deferred callback, then edit the original response.
+           INITIALIZE WS-DEFER-RESPONSE
+           INITIALIZE LK-HTTP-RESPONSE
+
+           CALL "DC-INTERACTION-DEFER"
+               USING DC-INTERACTION
+                     WS-DEFER-RESPONSE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-INTERACTION-ORIG-EDIT"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-EDIT-PAYLOAD
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-DEFER-EDIT.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-DEFER-DEL.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-DEFER-RESPONSE.
+          05 WS-DEFER-STATUS-CODE PIC 9(3) COMP-5.
+          05 WS-DEFER-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 WS-DEFER-RAW-HEADERS PIC X(4096).
+          05 WS-DEFER-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 WS-DEFER-RESPONSE-BODY PIC X(8192).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           LK-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+      *> JP: defer callback を返したあと、その original response を delete します。
+      *> EN: Send a deferred callback, then delete the original response.
+           INITIALIZE WS-DEFER-RESPONSE
+           INITIALIZE LK-HTTP-RESPONSE
+
+           CALL "DC-INTERACTION-DEFER"
+               USING DC-INTERACTION
+                     WS-DEFER-RESPONSE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-INTERACTION-ORIG-DEL"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-DEFER-DEL.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-INTERACTION-RESOLVE-APP-ID.
 
        DATA DIVISION.

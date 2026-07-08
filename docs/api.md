@@ -631,6 +631,19 @@ CALL "DC-INTERACTION-DEFER"
           DC-HTTP-RESPONSE
           DC-RESULT.
 
+CALL "DC-INTERACTION-DEFER-EDIT"
+    USING DC-CLIENT
+          DC-INTERACTION
+          EDIT-PAYLOAD
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-DEFER-DEL"
+    USING DC-CLIENT
+          DC-INTERACTION
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
 CALL "DC-INTERACTION-BUILD-FOLLOWUP"
     USING REPLY-CONTENT
           REPLY-PAYLOAD
@@ -828,6 +841,7 @@ Current coverage:
 - JSON-safe escaping for reply, embed, update, and follow-up content payloads
 - music-specific custom interaction handlers for `/nowplaying` and `/queue` with button rows and embed-based panel replies
 - callback, follow-up create/wait/get/edit/delete, and original-response get/edit/delete HTTP helpers
+- one-call defer-to-original-edit and defer-to-original-delete helpers
 - one-call follow-up wait + message-id extraction helper
 - message-id extraction from follow-up/original response JSON
 - JSON-to-edit/delete follow-up lifecycle helpers

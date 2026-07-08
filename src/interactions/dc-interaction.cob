@@ -101,3 +101,49 @@
            END-IF
            GOBACK.
        END PROGRAM DC-INTERACTION-GET-VALUE.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-GET-MESSAGE-ID.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-MESSAGE-ID-PATH PIC X(128) VALUE "$.id".
+       01 WS-MESSAGE-ID-TEXT PIC X(512).
+
+       LINKAGE SECTION.
+       01 DC-INTERACTION-MESSAGE-JSON PIC X(8192).
+       01 DC-MESSAGE-ID-OUT PIC X(32).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-INTERACTION-MESSAGE-JSON
+           DC-MESSAGE-ID-OUT
+           DC-RESULT.
+       MAIN.
+           *> JP: wait/get 系 helper が返す Discord message JSON から id だけを薄く取り出します。
+           *> EN: Extract only the message id from the Discord message JSON
+           *> EN: returned by the wait/get helpers.
+           *>
+           *> JP: 呼び出し側が毎回 JSON path を書かずに edit/delete へつなげられるようにする小さな補助です。
+           *> EN: This small helper lets callers jump into edit/delete flows
+           *> EN: without writing the JSON path each time.
+           MOVE SPACES TO DC-MESSAGE-ID-OUT
+           MOVE SPACES TO WS-MESSAGE-ID-TEXT
+           IF FUNCTION TRIM(DC-INTERACTION-MESSAGE-JSON) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Interaction message JSON is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           CALL "DC-JSON-GET-STRING"
+               USING DC-INTERACTION-MESSAGE-JSON
+                     WS-MESSAGE-ID-PATH
+                     WS-MESSAGE-ID-TEXT
+                     DC-RESULT
+           IF DC-STATUS-CODE = DC-STATUS-OK
+               MOVE WS-MESSAGE-ID-TEXT TO DC-MESSAGE-ID-OUT
+           END-IF
+           GOBACK.
+       END PROGRAM DC-INTERACTION-GET-MESSAGE-ID.

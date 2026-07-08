@@ -664,6 +664,14 @@ CALL "DC-INTERACTION-FUP-WAIT"
           DC-HTTP-RESPONSE
           DC-RESULT.
 
+CALL "DC-INTERACTION-FUP-WAIT-ID"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
+          DC-HTTP-RESPONSE
+          MESSAGE-ID
+          DC-RESULT.
+
 CALL "DC-INTERACTION-FUP-GET-BUILD"
     USING DC-CLIENT
           DC-INTERACTION
@@ -694,6 +702,22 @@ CALL "DC-INTERACTION-FUP-EDIT"
           DC-HTTP-RESPONSE
           DC-RESULT.
 
+CALL "DC-INTERACTION-FUP-EDIT-MSG"
+    USING DC-CLIENT
+          DC-INTERACTION
+          MESSAGE-JSON
+          REPLY-PAYLOAD
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-WAIT-EDIT"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
+          EDIT-PAYLOAD
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
 CALL "DC-INTERACTION-FUP-DEL-BUILD"
     USING DC-CLIENT
           DC-INTERACTION
@@ -705,6 +729,20 @@ CALL "DC-INTERACTION-FUP-DEL"
     USING DC-CLIENT
           DC-INTERACTION
           MESSAGE-ID
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-DEL-MSG"
+    USING DC-CLIENT
+          DC-INTERACTION
+          MESSAGE-JSON
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-FUP-WAIT-DEL"
+    USING DC-CLIENT
+          DC-INTERACTION
+          REPLY-PAYLOAD
           DC-HTTP-RESPONSE
           DC-RESULT.
 
@@ -732,6 +770,11 @@ CALL "DC-INTERACTION-ORIG-GET"
     USING DC-CLIENT
           DC-INTERACTION
           DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-INTERACTION-GET-MESSAGE-ID"
+    USING MESSAGE-JSON
+          MESSAGE-ID
           DC-RESULT.
 
 CALL "DC-INTERACTION-ORIG-DEL-BUILD"
@@ -785,6 +828,10 @@ Current coverage:
 - JSON-safe escaping for reply, embed, update, and follow-up content payloads
 - music-specific custom interaction handlers for `/nowplaying` and `/queue` with button rows and embed-based panel replies
 - callback, follow-up create/wait/get/edit/delete, and original-response get/edit/delete HTTP helpers
+- one-call follow-up wait + message-id extraction helper
+- message-id extraction from follow-up/original response JSON
+- JSON-to-edit/delete follow-up lifecycle helpers
+- one-call wait-to-edit and wait-to-delete follow-up lifecycle helpers
 - component select and modal input value lookup helpers
 - dispatcher-friendly handler registration through `DC-INTERACTION-REGISTER`
 

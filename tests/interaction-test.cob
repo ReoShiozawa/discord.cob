@@ -107,6 +107,7 @@
        01 WS-BODY-START PIC 9(5) COMP-5.
        01 WS-PATH PIC X(128).
        01 WS-TEXT PIC X(512).
+       01 WS-MESSAGE-ID-OUT PIC X(32).
        01 WS-POS PIC 9(5) COMP-5.
        01 WS-FAILURES PIC 9(4) COMP-5 VALUE 0.
        01 WS-EXIT-CODE PIC 9(4) COMP-5 VALUE 0.
@@ -164,9 +165,15 @@
            PERFORM TEST-DEFER
            PERFORM TEST-FOLLOWUP
            PERFORM TEST-FOLLOWUP-WAIT
+           PERFORM TEST-FOLLOWUP-WAIT-ID
            PERFORM TEST-FOLLOWUP-GET
+           PERFORM TEST-GET-MESSAGE-ID
            PERFORM TEST-FOLLOWUP-EDIT
+           PERFORM TEST-FOLLOWUP-EDIT-MSG
+           PERFORM TEST-FOLLOWUP-WAIT-EDIT
            PERFORM TEST-FOLLOWUP-DELETE
+           PERFORM TEST-FOLLOWUP-DELETE-MSG
+           PERFORM TEST-FOLLOWUP-WAIT-DELETE
            PERFORM TEST-ORIGINAL-GET
            PERFORM TEST-DISPATCH-HANDLER-REPLY
            PERFORM FINISH-TEST.
@@ -2010,6 +2017,41 @@
                ADD 1 TO WS-FAILURES
            END-IF.
 
+       TEST-FOLLOWUP-WAIT-ID.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-FOLLOWUP-FIXTURE
+
+           MOVE SPACES TO WS-MESSAGE-ID-OUT
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-FUP-WAIT-ID"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-PAYLOAD
+                     DC-HTTP-RESPONSE
+                     WS-MESSAGE-ID-OUT
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY "interaction-test: followup wait-id status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(WS-MESSAGE-ID-OUT) NOT = "msg-1"
+               DISPLAY "interaction-test: followup wait-id mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-HTTP-RESPONSE-BODY(1:DC-HTTP-RESPONSE-BODY-LENGTH)
+               NOT = WS-FOLLOWUP-MESSAGE-JSON(
+                   1:FUNCTION LENGTH(
+                       FUNCTION TRIM(WS-FOLLOWUP-MESSAGE-JSON TRAILING)))
+               DISPLAY "interaction-test: followup wait-id response mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-FOLLOWUP-GET.
            INITIALIZE DC-INTERACTION
            CALL "DC-INTERACTION-FROM-JSON"
@@ -2049,6 +2091,30 @@
            IF DC-HTTP-BUFFER-DATA(1:57)
                NOT = "GET /api/v10/webhooks/app-1/tok-1/messages/msg-1 HTTP/1.1"
                DISPLAY "interaction-test: followup get request mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-GET-MESSAGE-ID.
+           MOVE SPACES TO WS-MESSAGE-ID-OUT
+           CALL "DC-INTERACTION-GET-MESSAGE-ID"
+               USING WS-FOLLOWUP-MESSAGE-JSON
+                     WS-MESSAGE-ID-OUT
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-MESSAGE-ID-OUT) NOT = "msg-1"
+               DISPLAY "interaction-test: message id helper mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           MOVE SPACES TO WS-MESSAGE-ID-OUT
+           CALL "DC-INTERACTION-GET-MESSAGE-ID"
+               USING WS-ORIGINAL-MESSAGE-JSON
+                     WS-MESSAGE-ID-OUT
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-MESSAGE-ID-OUT) NOT = "orig-1"
+               DISPLAY
+                   "interaction-test: original message id helper mismatch"
                ADD 1 TO WS-FAILURES
            END-IF.
 
@@ -2106,6 +2172,78 @@
                END-IF
            END-IF.
 
+       TEST-FOLLOWUP-EDIT-MSG.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-FOLLOWUP-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-FUP-EDIT-MSG"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-MESSAGE-JSON
+                     WS-EDIT-PAYLOAD
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY "interaction-test: followup edit-msg status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:59)
+               NOT = "PATCH /api/v10/webhooks/app-1/tok-1/messages/msg-1 HTTP/1.1"
+               DISPLAY "interaction-test: followup edit-msg request mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-FOLLOWUP-WAIT-EDIT.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-FOLLOWUP-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-FUP-WAIT-EDIT"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-PAYLOAD
+                     WS-EDIT-PAYLOAD
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY "interaction-test: followup wait-edit status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:59)
+               NOT = "PATCH /api/v10/webhooks/app-1/tok-1/messages/msg-1 HTTP/1.1"
+               DISPLAY "interaction-test: followup wait-edit request mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-FOLLOWUP-DELETE.
            INITIALIZE DC-INTERACTION
            CALL "DC-INTERACTION-FROM-JSON"
@@ -2138,6 +2276,79 @@
            IF DC-HTTP-BUFFER-DATA(1:60)
                NOT = "DELETE /api/v10/webhooks/app-1/tok-1/messages/msg-1 HTTP/1.1"
                DISPLAY "interaction-test: followup delete request mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-FOLLOWUP-DELETE-MSG.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-CALLBACK-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-FUP-DEL-MSG"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-MESSAGE-JSON
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 204
+               DISPLAY "interaction-test: followup delete-msg status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:60)
+               NOT = "DELETE /api/v10/webhooks/app-1/tok-1/messages/msg-1 HTTP/1.1"
+               DISPLAY
+                   "interaction-test: followup delete-msg request mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-FOLLOWUP-WAIT-DELETE.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-PLAY-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-FOLLOWUP-FIXTURE
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-INTERACTION-FUP-WAIT-DEL"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-PAYLOAD
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-STATUS-CODE NOT = 200
+               DISPLAY
+                   "interaction-test: followup wait-delete status mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           INITIALIZE DC-HTTP-BUFFER
+           CALL "DC-TLS-MOCK-GET-LAST-REQUEST"
+               USING WS-DISCORD-HOST
+                     WS-TLS-PORT
+                     DC-HTTP-BUFFER
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-HTTP-BUFFER-DATA(1:60)
+               NOT = "DELETE /api/v10/webhooks/app-1/tok-1/messages/msg-1 HTTP/1.1"
+               DISPLAY
+                   "interaction-test: followup wait-delete request mismatch"
                ADD 1 TO WS-FAILURES
            END-IF.
 

@@ -1814,6 +1814,59 @@
        END PROGRAM DC-INTERACTION-FUP-WAIT.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-FUP-WAIT-ID.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-FOLLOWUP-PAYLOAD PIC X(8192).
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       01 DC-FOLLOWUP-MESSAGE-ID-OUT PIC X(32).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-FOLLOWUP-PAYLOAD
+           LK-HTTP-RESPONSE
+           DC-FOLLOWUP-MESSAGE-ID-OUT
+           DC-RESULT.
+       MAIN.
+      *> JP: wait=true follow-up を送信し、返ってきた message JSON から id までまとめて取り出します。
+      *> EN: Send a wait=true follow-up and extract the returned message id from
+      *> EN: the response JSON in the same call.
+      *>
+      *> JP: 「作る -> id を抜く -> すぐ edit/delete する」というよくある流れを
+      *> JP: 呼び出し側で分解しなくて済むようにする補助です。
+      *> EN: This is a small convenience helper for the common
+      *> EN: create -> read id -> edit/delete flow.
+           MOVE SPACES TO DC-FOLLOWUP-MESSAGE-ID-OUT
+           INITIALIZE LK-HTTP-RESPONSE
+
+           CALL "DC-INTERACTION-FUP-WAIT"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-FOLLOWUP-PAYLOAD
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-INTERACTION-GET-MESSAGE-ID"
+               USING LK-HTTP-RESPONSE-BODY
+                     DC-FOLLOWUP-MESSAGE-ID-OUT
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-FUP-WAIT-ID.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-INTERACTION-FUP-GET-BUILD.
 
        DATA DIVISION.
@@ -2100,6 +2153,114 @@
        END PROGRAM DC-INTERACTION-FUP-EDIT.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-FUP-EDIT-MSG.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-FOLLOWUP-MESSAGE-ID PIC X(32).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-FOLLOWUP-MESSAGE-JSON PIC X(8192).
+       01 DC-FOLLOWUP-PAYLOAD PIC X(8192).
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-FOLLOWUP-MESSAGE-JSON
+           DC-FOLLOWUP-PAYLOAD
+           LK-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+      *> JP: すでに受け取っている follow-up message JSON から id を引き直し、
+      *> JP: そのまま edit まで進める高水準 helper です。
+      *> EN: High-level helper that re-extracts the id from an already available
+      *> EN: follow-up message JSON and proceeds directly into edit.
+           MOVE SPACES TO WS-FOLLOWUP-MESSAGE-ID
+           INITIALIZE LK-HTTP-RESPONSE
+
+           CALL "DC-INTERACTION-GET-MESSAGE-ID"
+               USING DC-FOLLOWUP-MESSAGE-JSON
+                     WS-FOLLOWUP-MESSAGE-ID
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-INTERACTION-FUP-EDIT"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-MESSAGE-ID
+                     DC-FOLLOWUP-PAYLOAD
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-FUP-EDIT-MSG.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-FUP-WAIT-EDIT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-FOLLOWUP-MESSAGE-JSON PIC X(8192).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-FOLLOWUP-PAYLOAD PIC X(8192).
+       01 DC-EDIT-PAYLOAD PIC X(8192).
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-FOLLOWUP-PAYLOAD
+           DC-EDIT-PAYLOAD
+           LK-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+      *> JP: wait=true で作った follow-up を、その返却 message を使って即座に edit します。
+      *> EN: Create a wait=true follow-up, then immediately edit it using the
+      *> EN: returned message JSON.
+           MOVE SPACES TO WS-FOLLOWUP-MESSAGE-JSON
+           INITIALIZE LK-HTTP-RESPONSE
+
+           CALL "DC-INTERACTION-FUP-WAIT"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-FOLLOWUP-PAYLOAD
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           MOVE LK-HTTP-RESPONSE-BODY TO WS-FOLLOWUP-MESSAGE-JSON
+           CALL "DC-INTERACTION-FUP-EDIT-MSG"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-MESSAGE-JSON
+                     DC-EDIT-PAYLOAD
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-FUP-WAIT-EDIT.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-INTERACTION-FUP-DEL-BUILD.
 
        DATA DIVISION.
@@ -2230,6 +2391,107 @@
            CALL "DC-RESULT-OK" USING DC-RESULT
            GOBACK.
        END PROGRAM DC-INTERACTION-FUP-DEL.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-FUP-DEL-MSG.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-FOLLOWUP-MESSAGE-ID PIC X(32).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-FOLLOWUP-MESSAGE-JSON PIC X(8192).
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-FOLLOWUP-MESSAGE-JSON
+           LK-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+      *> JP: follow-up message JSON をそのまま delete に渡せる高水準 helper です。
+      *> EN: High-level helper that lets callers pass a follow-up message JSON
+      *> EN: directly into delete.
+           MOVE SPACES TO WS-FOLLOWUP-MESSAGE-ID
+           INITIALIZE LK-HTTP-RESPONSE
+
+           CALL "DC-INTERACTION-GET-MESSAGE-ID"
+               USING DC-FOLLOWUP-MESSAGE-JSON
+                     WS-FOLLOWUP-MESSAGE-ID
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-INTERACTION-FUP-DEL"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-MESSAGE-ID
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-FUP-DEL-MSG.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-FUP-WAIT-DEL.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-FOLLOWUP-MESSAGE-JSON PIC X(8192).
+
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-FOLLOWUP-PAYLOAD PIC X(8192).
+       01 LK-HTTP-RESPONSE.
+          05 LK-HTTP-STATUS-CODE PIC 9(3) COMP-5.
+          05 LK-HTTP-HEADER-LENGTH PIC 9(5) COMP-5.
+          05 LK-HTTP-RAW-HEADERS PIC X(4096).
+          05 LK-HTTP-RESPONSE-BODY-LENGTH PIC 9(9) COMP-5.
+          05 LK-HTTP-RESPONSE-BODY PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-FOLLOWUP-PAYLOAD
+           LK-HTTP-RESPONSE
+           DC-RESULT.
+       MAIN.
+      *> JP: wait=true で作った follow-up を、その返却 message を使って即座に delete します。
+      *> EN: Create a wait=true follow-up, then immediately delete it using the
+      *> EN: returned message JSON.
+           MOVE SPACES TO WS-FOLLOWUP-MESSAGE-JSON
+           INITIALIZE LK-HTTP-RESPONSE
+
+           CALL "DC-INTERACTION-FUP-WAIT"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     DC-FOLLOWUP-PAYLOAD
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           MOVE LK-HTTP-RESPONSE-BODY TO WS-FOLLOWUP-MESSAGE-JSON
+           CALL "DC-INTERACTION-FUP-DEL-MSG"
+               USING DC-CLIENT
+                     DC-INTERACTION
+                     WS-FOLLOWUP-MESSAGE-JSON
+                     LK-HTTP-RESPONSE
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-FUP-WAIT-DEL.
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-INTERACTION-ORIG-EDIT-BUILD.

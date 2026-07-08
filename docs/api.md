@@ -788,6 +788,150 @@ Current coverage:
 - component select and modal input value lookup helpers
 - dispatcher-friendly handler registration through `DC-INTERACTION-REGISTER`
 
+## Slash Command Schema
+
+Higher-level command definition API. Commands are declared as structured
+schema data (`discord-command-schema.cpy`) instead of hand-written JSON, then
+converted into a stable payload or synchronized to Discord in one call. The
+low-level registration helpers below remain available and unchanged.
+
+```cobol
+CALL "DC-COMMAND-SCHEMA-INIT"
+    USING DC-COMMAND-SCHEMA
+          DC-RESULT.
+
+CALL "DC-COMMAND-SCHEMA-ADD"
+    USING DC-COMMAND-SCHEMA
+          COMMAND-NAME
+          COMMAND-DESCRIPTION
+          DC-RESULT.
+
+CALL "DC-COMMAND-SCHEMA-ADD-OPTION"
+    USING DC-COMMAND-SCHEMA
+          OPTION-NAME
+          OPTION-TYPE
+          OPTION-DESCRIPTION
+          OPTION-REQUIRED
+          DC-RESULT.
+
+CALL "DC-COMMAND-SCHEMA-VALIDATE"
+    USING DC-COMMAND-SCHEMA
+          DC-RESULT.
+
+CALL "DC-COMMAND-SCHEMA-TO-JSON"
+    USING DC-COMMAND-SCHEMA
+          COMMANDS-JSON
+          DC-RESULT.
+
+CALL "DC-COMMAND-SCHEMA-SYNC"
+    USING DC-CLIENT
+          GUILD-ID
+          DC-COMMAND-SCHEMA
+          DC-HTTP-RESPONSE
+          DC-RESULT.
+
+CALL "DC-MUSIC-COMMANDS-SCHEMA"
+    USING DC-COMMAND-SCHEMA
+          DC-RESULT.
+```
+
+Behavior notes:
+
+- `DC-COMMAND-SCHEMA-ADD` appends one chat-input command (type 1) with a name
+  and description; options are attached to the most recently added command
+  with `DC-COMMAND-SCHEMA-ADD-OPTION`
+- `OPTION-TYPE` takes Discord option types directly (for example 3 = string,
+  4 = integer) as `PIC 9(4) COMP-5`; `OPTION-REQUIRED` is `0` or `1`
+- `DC-COMMAND-SCHEMA-VALIDATE` rejects empty schemas, blank names or
+  descriptions, non-lowercase names, and out-of-range types with the
+  `DC_ERR_COMMAND_SCHEMA` error code
+- `DC-COMMAND-SCHEMA-TO-JSON` validates first, then produces a stable JSON
+  array with fixed key order, so the same schema always yields the same
+  payload; text fields are JSON-escaped and `"required"` is emitted only when
+  true
+- `DC-COMMAND-SCHEMA-SYNC` converts the schema and performs a bulk overwrite
+  (`PUT`) through `DC-SLASH-COMMAND-OVERWRITE`; an empty guild id targets
+  global commands
+- `DC-MUSIC-COMMANDS-SCHEMA` declares the built-in music command set through
+  this API, and `DC-MUSIC-COMMANDS-BUILD-SET` now derives its JSON from that
+  schema, so the built-in registration path is the reference migration example
+
+Complete example:
+
+```cobol
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. EXAMPLE-SCHEMA-SYNC.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-net.cpy".
+       COPY "discord-result.cpy".
+       COPY "discord-command-schema.cpy".
+       01 WS-GUILD-ID PIC X(32) VALUE "example-guild-id".
+       01 WS-COMMAND-NAME PIC X(32).
+       01 WS-COMMAND-DESC PIC X(100).
+       01 WS-OPTION-NAME PIC X(32).
+       01 WS-OPTION-TYPE PIC 9(4) COMP-5.
+       01 WS-OPTION-DESC PIC X(100).
+       01 WS-OPTION-REQUIRED PIC 9(4) COMP-5.
+
+       PROCEDURE DIVISION.
+       MAIN.
+           INITIALIZE DC-CONFIG
+           MOVE "example-token" TO DC-BOT-TOKEN
+           CALL "DC-CLIENT-INIT"
+               USING DC-CONFIG DC-CLIENT DC-RESULT
+           MOVE "example-application-id" TO DC-CLIENT-ID
+
+           CALL "DC-COMMAND-SCHEMA-INIT"
+               USING DC-COMMAND-SCHEMA DC-RESULT
+
+           MOVE "echo" TO WS-COMMAND-NAME
+           MOVE "Echo a message back" TO WS-COMMAND-DESC
+           CALL "DC-COMMAND-SCHEMA-ADD"
+               USING DC-COMMAND-SCHEMA
+                     WS-COMMAND-NAME
+                     WS-COMMAND-DESC
+                     DC-RESULT
+
+           MOVE "message" TO WS-OPTION-NAME
+           MOVE 3 TO WS-OPTION-TYPE
+           MOVE "Message to echo" TO WS-OPTION-DESC
+           MOVE 1 TO WS-OPTION-REQUIRED
+           CALL "DC-COMMAND-SCHEMA-ADD-OPTION"
+               USING DC-COMMAND-SCHEMA
+                     WS-OPTION-NAME
+                     WS-OPTION-TYPE
+                     WS-OPTION-DESC
+                     WS-OPTION-REQUIRED
+                     DC-RESULT
+
+           INITIALIZE DC-HTTP-RESPONSE
+           CALL "DC-COMMAND-SCHEMA-SYNC"
+               USING DC-CLIENT
+                     WS-GUILD-ID
+                     DC-COMMAND-SCHEMA
+                     DC-HTTP-RESPONSE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = 0
+               DISPLAY FUNCTION TRIM(DC-ERROR-MESSAGE)
+           END-IF
+           STOP RUN.
+       END PROGRAM EXAMPLE-SCHEMA-SYNC.
+```
+
+Current coverage:
+
+- structured command declaration with name/description/options metadata over
+  fixed-width tables (`discord-command-schema.cpy`)
+- schema validation with a dedicated `DC_ERR_COMMAND_SCHEMA` error code
+- deterministic schema-to-JSON conversion reusable for register and overwrite
+  payloads
+- one-call synchronization through the existing bulk-overwrite REST path
+- built-in music commands declared through the same schema API
+- mock-backed schema conversion and sync tests in `tests/slash-command-test.cob`
+
 ## Slash Command Registration
 
 ```cobol

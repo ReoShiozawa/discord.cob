@@ -51,6 +51,45 @@
        END PROGRAM DC-INTERACTION-GET-OPTION.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-GET-FOCUSED.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-interaction.cpy".
+       01 DC-FOCUSED-NAME-OUT PIC X(64).
+       01 DC-FOCUSED-VALUE-OUT PIC X(512).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-INTERACTION
+           DC-FOCUSED-NAME-OUT
+           DC-FOCUSED-VALUE-OUT
+           DC-RESULT.
+       MAIN.
+           *> JP: autocomplete interaction で現在フォーカス中の option を返します。
+           *> EN: Return the option currently focused in an autocomplete interaction.
+           *>
+           *> JP: focused 情報は parse 時に 1 件だけ抽出してあるため、
+           *> JP: ここでは lookup ではなく dedicated slot をそのまま返します。
+           *> EN: Focused metadata is extracted once during parsing, so this helper
+           *> EN: returns the dedicated slot directly instead of scanning the table.
+           MOVE SPACES TO DC-FOCUSED-NAME-OUT
+           MOVE SPACES TO DC-FOCUSED-VALUE-OUT
+           IF FUNCTION TRIM(DC-INTERACTION-FOCUSED-NAME) = SPACES
+               MOVE DC-STATUS-NOT-FOUND TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_FOCUSED" TO DC-ERROR-CODE
+               MOVE "Focused interaction option was not found."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           MOVE DC-INTERACTION-FOCUSED-NAME TO DC-FOCUSED-NAME-OUT
+           MOVE DC-INTERACTION-FOCUSED-VALUE TO DC-FOCUSED-VALUE-OUT
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-GET-FOCUSED.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-INTERACTION-GET-VALUE.
 
        DATA DIVISION.

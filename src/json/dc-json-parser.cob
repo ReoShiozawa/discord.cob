@@ -7,8 +7,7 @@
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
-       01 WS-IDX PIC 9(5) COMP-5.
-       01 WS-CHAR PIC X.
+       COPY "discord-json.cpy".
 
        LINKAGE SECTION.
        01 DC-JSON-BUFFER-IN PIC X(8192).
@@ -16,27 +15,7 @@
 
        PROCEDURE DIVISION USING DC-JSON-BUFFER-IN DC-RESULT.
        MAIN.
-           MOVE 1 TO WS-IDX
-           PERFORM UNTIL WS-IDX > 8192
-               OR DC-JSON-BUFFER-IN(WS-IDX:1) NOT = SPACE
-               ADD 1 TO WS-IDX
-           END-PERFORM
-
-           IF WS-IDX > 8192
-               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-               MOVE "DC_ERR_JSON_PARSE" TO DC-ERROR-CODE
-               MOVE "JSON buffer is empty." TO DC-ERROR-MESSAGE
-               GOBACK
-           END-IF
-
-           MOVE DC-JSON-BUFFER-IN(WS-IDX:1) TO WS-CHAR
-           IF WS-CHAR = "{" OR WS-CHAR = "["
-               CALL "DC-RESULT-OK" USING DC-RESULT
-           ELSE
-               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-               MOVE "DC_ERR_JSON_PARSE" TO DC-ERROR-CODE
-               MOVE "JSON must start with an object or array."
-                   TO DC-ERROR-MESSAGE
-           END-IF
+           CALL "DC-JSON-SCAN"
+               USING DC-JSON-BUFFER-IN DC-JSON-TOKENS DC-RESULT
            GOBACK.
        END PROGRAM DC-JSON-VALIDATE.

@@ -17,7 +17,7 @@
        01 WS-STEP-COUNT PIC S9(9) COMP-5 VALUE 0.
        01 WS-STEP-COUNT-TEXT PIC X(32).
        01 WS-STOP-FILE PIC X(512).
-       01 WS-WAIT-MS PIC 9(10) COMP-5 VALUE 50.
+       01 WS-WAIT-MS PIC 9(10) COMP-5 VALUE 20.
        01 WS-IDLE-LEAVE-TICKS PIC 9(9) COMP-5 VALUE 1200.
        01 WS-IDLE-LEAVE-TEXT PIC X(32).
 
@@ -47,6 +47,17 @@
                    TO WS-IDLE-LEAVE-TICKS
            END-IF
            MOVE WS-IDLE-LEAVE-TICKS TO DC-MUSIC-IDLE-LEAVE-TICKS
+           IF FUNCTION TRIM(DC-BOT-TOKEN) = SPACES
+              OR FUNCTION TRIM(WS-GUILD-ID) = SPACES
+              OR FUNCTION TRIM(WS-VOICE-CHANNEL-ID) = SPACES
+              OR FUNCTION TRIM(WS-AUDIO-SOURCE) = SPACES
+               DISPLAY "token, guild, voice channel, and audio source are required"
+               STOP RUN RETURNING 2
+           END-IF
+           IF WS-STEP-COUNT <= 0
+              AND FUNCTION TRIM(WS-STOP-FILE) = SPACES
+               MOVE ".discord-cob.stop" TO WS-STOP-FILE
+           END-IF
 
            CALL "DC-CLIENT-INIT"
                USING DC-CONFIG
@@ -86,18 +97,14 @@
 
            DISPLAY "queued local opus source"
            DISPLAY FUNCTION TRIM(WS-AUDIO-SOURCE)
-           IF FUNCTION TRIM(WS-STOP-FILE) NOT = SPACES
+           IF WS-STEP-COUNT <= 0
                DISPLAY "running ticks: until stop file appears"
                DISPLAY FUNCTION TRIM(WS-STOP-FILE)
            ELSE
-               IF WS-STEP-COUNT > 0
-                   DISPLAY "running ticks: " WS-STEP-COUNT
-               ELSE
-                   DISPLAY "running ticks: until process stop"
-               END-IF
+               DISPLAY "running ticks: " WS-STEP-COUNT
            END-IF
 
-           IF FUNCTION TRIM(WS-STOP-FILE) NOT = SPACES
+           IF WS-STEP-COUNT <= 0
                CALL "DC-BOT-RUN-UNTIL-FILE"
                    USING DC-CLIENT
                          WS-STOP-FILE

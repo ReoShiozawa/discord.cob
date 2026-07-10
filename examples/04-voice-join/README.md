@@ -2,6 +2,18 @@
 
 `DC-VOICE-JOIN` and `DC-VOICE-LEAVE` are implemented.
 
+`main.cob` is a runnable live example. It logs in, registers the framework handlers, queues the join, and drives Gateway/Voice negotiation until a stop file appears.
+
+```sh
+make build/examples/04-voice-join
+DISCORD_TOKEN=... \
+DISCORD_APPLICATION_ID=... \
+DISCORD_GUILD_ID=... \
+DISCORD_VOICE_CHANNEL_ID=... \
+DISCORD_STOP_FILE=.discord-cob.stop \
+./build/examples/04-voice-join
+```
+
 The current shape is Gateway-queue based:
 
 - `DC-VOICE-JOIN` stores a guild-scoped voice session snapshot

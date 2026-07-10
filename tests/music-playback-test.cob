@@ -23,6 +23,7 @@
        01 WS-EXPECTED-PAYLOAD PIC X(3).
        01 WS-FAILURES PIC 9(4) COMP-5 VALUE 0.
        01 WS-EXIT-CODE PIC 9(4) COMP-5 VALUE 0.
+       01 WS-IDX PIC 9(4) COMP-5.
 
        PROCEDURE DIVISION.
        MAIN.
@@ -34,6 +35,7 @@
            PERFORM TEST-STORED-VOICE-TICK
            PERFORM TEST-AUTO-LEAVE-IDLE
            PERFORM TEST-STOP-CLEARS-QUEUE
+           PERFORM TEST-NEGOTIATED-ENCRYPTED-PLAYBACK
            PERFORM TEST-STOP-CLEARS-RUNTIME
            PERFORM FINISH-TEST.
 
@@ -370,6 +372,57 @@
 
            MOVE "ABC" TO WS-EXPECTED-PAYLOAD
            PERFORM CHECK-LAST-UDP-PAYLOAD.
+
+       TEST-NEGOTIATED-ENCRYPTED-PLAYBACK.
+           CALL "DC-MUSIC-STATE-CLEAR" USING WS-GUILD-ID DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM PREPARE-VOICE-SESSION
+           MOVE "aead_xchacha20_poly1305_rtpsize"
+               TO DC-VS-ENCRYPTION-MODE
+           PERFORM VARYING WS-IDX FROM 1 BY 1 UNTIL WS-IDX > 32
+               MOVE FUNCTION CHAR(WS-IDX + 1)
+                   TO DC-VS-SECRET-KEY(WS-IDX:1)
+           END-PERFORM
+           MOVE 0 TO DC-VS-MEDIA-NONCE
+
+           CALL "DC-MUSIC-PLAY"
+               USING DC-CLIENT WS-GUILD-ID WS-CHANNEL-ID
+                     WS-SOURCE-PATH DC-RESULT
+           PERFORM CHECK-OK
+           PERFORM CLEAR-GATEWAY-COMMAND
+           CALL "DC-MUSIC-VOICE-TICK"
+               USING DC-CLIENT DC-VOICE-SESSION DC-RESULT
+           PERFORM CHECK-OK
+
+           INITIALIZE DC-UDP-PACKET
+           CALL "DC-UDP-MOCK-GET-LAST-REQUEST"
+               USING WS-VOICE-UDP-HOST DC-VS-PORT
+                     DC-UDP-PACKET DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-UDP-PACKET-LENGTH NOT = 35
+               DISPLAY "music-playback-test: encrypted packet length mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-UDP-PACKET-DATA(1:2) NOT = X"8078"
+               DISPLAY "music-playback-test: encrypted RTP header mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-UDP-PACKET-DATA(13:3) = "ABC"
+               DISPLAY "music-playback-test: Opus payload was not encrypted"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-UDP-PACKET-DATA(32:4) NOT = X"00000000"
+               DISPLAY "music-playback-test: encrypted nonce suffix mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-VS-MEDIA-NONCE NOT = 1
+               DISPLAY "music-playback-test: media nonce did not advance"
+               ADD 1 TO WS-FAILURES
+           END-IF
+
+           CALL "DC-MUSIC-STOP"
+               USING DC-CLIENT WS-GUILD-ID DC-RESULT
+           PERFORM CHECK-OK.
 
        TEST-AUTO-LEAVE-IDLE.
            CALL "DC-MUSIC-STATE-CLEAR"

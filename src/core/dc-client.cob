@@ -115,6 +115,7 @@
 
        DATA DIVISION.
        WORKING-STORAGE SECTION.
+       COPY "discord-net.cpy".
        01 WS-LOCAL-RESULT.
           05 WS-LOCAL-STATUS-CODE PIC S9(9) COMP-5.
           05 WS-LOCAL-ERROR-CODE PIC X(64).
@@ -135,11 +136,13 @@
            *> JP: 再接続時は再初期化なしで gateway を開き直せます。
            *> EN: Client-wide settings like the token and handler registry stay
            *> EN: intact so a reconnect can reopen the gateway without full reinit.
-           IF DC-CLIENT-GW-WS-LIVE-FLAG = 1
-              AND DC-CLIENT-GW-WS-HANDLE > 0
-               CALL "DC-TLS-CLOSE"
-                   USING DC-CLIENT-GW-WS-HANDLE
-                         WS-LOCAL-RESULT
+           IF DC-CLIENT-GW-WS-OPEN-FLAG = 1
+               CALL "DC-GATEWAY-SESSION-LOAD"
+                   USING DC-CLIENT DC-WS-SESSION WS-LOCAL-RESULT
+               IF WS-LOCAL-STATUS-CODE = DC-STATUS-OK
+                   CALL "DC-WS-CLOSE"
+                       USING DC-WS-SESSION WS-LOCAL-RESULT
+               END-IF
            END-IF
            MOVE 0 TO DC-CLIENT-GW-HEARTBEAT-INTERVAL
            MOVE 0 TO DC-CLIENT-GW-HEARTBEAT-NEXT-AT

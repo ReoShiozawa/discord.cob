@@ -16,6 +16,13 @@
 
        PROCEDURE DIVISION.
        MAIN.
+           INITIALIZE DC-OPUS-FRAME
+           CALL "DC-OPUS-ENCODE" USING DC-OPUS-FRAME DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-OPUS-LENGTH NOT = 3 OR DC-OPUS-DURATION-MS NOT = 20
+               DISPLAY "opus-test: normalized silence frame mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
            PERFORM WRITE-FIXTURE
            PERFORM TEST-OPEN
            PERFORM TEST-READ-FRAMES

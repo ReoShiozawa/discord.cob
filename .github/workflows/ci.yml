@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GnuCOBOL and runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnucobol libsodium-dev netcat-openbsd openssl pkg-config
+      - name: Build library modules
+        run: make build
+      - name: Run test suite
+        run: make test
+      - name: Build all examples
+        run: make examples

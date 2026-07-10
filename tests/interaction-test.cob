@@ -9,6 +9,7 @@
        WORKING-STORAGE SECTION.
        COPY "discord-client.cpy".
        COPY "discord-interaction.cpy".
+       COPY "discord-interaction-choice.cpy".
        COPY "discord-event.cpy".
        COPY "discord-music.cpy".
        COPY "discord-rtp.cpy".
@@ -30,6 +31,7 @@
        01 WS-RAW-MUSIC-QUEUE-CLEAR-BUTTON-JSON PIC X(8192).
        01 WS-RAW-MUSIC-NP-VIEW-BUTTON-JSON PIC X(8192).
        01 WS-RAW-CUSTOM-CMD-JSON PIC X(8192).
+       01 WS-RAW-AUTOCOMPLETE-JSON PIC X(8192).
        01 WS-RAW-MISSING-OPTION-JSON PIC X(8192).
        01 WS-RAW-BUTTON-JSON PIC X(8192).
        01 WS-RAW-SELECT-JSON PIC X(8192).
@@ -65,6 +67,7 @@
        01 WS-EXPECTED-UPDATE-REPLY PIC X(8192).
        01 WS-EXPECTED-COMPONENT-REPLY PIC X(8192).
        01 WS-EXPECTED-UPDATE-COMPONENT-REPLY PIC X(8192).
+       01 WS-EXPECTED-AUTOCOMPLETE-REPLY PIC X(8192).
        01 WS-DEFERRED-PAYLOAD PIC X(8192) VALUE '{"type":5}'.
        01 WS-FOLLOWUP-PAYLOAD PIC X(8192) VALUE '{"content":"Later"}'.
        01 WS-FOLLOWUP-MESSAGE-JSON PIC X(8192)
@@ -85,7 +88,12 @@
        01 WS-UPDATE-TEXT PIC X(2000) VALUE "Updated from button.".
        01 WS-SAVED-TEXT PIC X(2000) VALUE "Saved".
        01 WS-VALUE-NAME PIC X(128).
+       01 WS-FOCUSED-NAME PIC X(64).
+       01 WS-FOCUSED-VALUE PIC X(512).
+       01 WS-CHOICE-NAME PIC X(100).
+       01 WS-CHOICE-VALUE PIC X(100).
        01 WS-CUSTOM-CMD-NAME PIC X(128) VALUE "/panel".
+       01 WS-AUTOCOMPLETE-CMD-NAME PIC X(128) VALUE "/suggest".
        01 WS-COMPONENT-ID PIC X(128) VALUE "btn:skip".
        01 WS-MODAL-ID PIC X(128) VALUE "feedback-modal".
        01 WS-MODAL-TITLE PIC X(128) VALUE "Feedback".
@@ -94,6 +102,7 @@
        01 WS-CMD-HANDLER PIC X(64) VALUE "TEST-IA-CMD-HANDLER".
        01 WS-COMP-HANDLER PIC X(64) VALUE "TEST-IA-COMP-HANDLER".
        01 WS-MODAL-HANDLER PIC X(64) VALUE "TEST-IA-MODAL-HANDLER".
+       01 WS-AUTO-HANDLER PIC X(64) VALUE "TEST-IA-AUTO-HANDLER".
        01 WS-CMD-HANDLER-ALT PIC X(64) VALUE "TEST-IA-CMD-HANDLER-ALT".
        01 WS-COMP-HANDLER-ALT PIC X(64) VALUE "TEST-IA-COMP-HANDLER-ALT".
        01 WS-MODAL-HANDLER-ALT PIC X(64) VALUE "TEST-IA-MODAL-HANDLER-ALT".
@@ -122,6 +131,7 @@
            PERFORM TEST-PARSE-WRAPPED
            PERFORM TEST-PARSE-COMPONENT
            PERFORM TEST-PARSE-MODAL
+           PERFORM TEST-PARSE-AUTOCOMPLETE
            PERFORM TEST-HANDLE-PLAY
            PERFORM TEST-HANDLE-QUEUE
            PERFORM TEST-HANDLE-NOWPLAYING
@@ -141,6 +151,7 @@
            PERFORM TEST-HANDLE-EVENT
            PERFORM TEST-BUILD-DEFERRED
            PERFORM TEST-BUILD-EPHEMERAL
+           PERFORM TEST-BUILD-AUTOCOMPLETE
            PERFORM TEST-BUILD-FOLLOWUP
            PERFORM TEST-BUILD-FOLLOWUP-WAIT
            PERFORM TEST-BUILD-FOLLOWUP-GET
@@ -160,6 +171,7 @@
            PERFORM TEST-CUSTOM-COMMAND-HANDLER
            PERFORM TEST-CUSTOM-COMPONENT-HANDLER
            PERFORM TEST-CUSTOM-MODAL-HANDLER
+           PERFORM TEST-CUSTOM-AUTOCOMPLETE-HANDLER
            PERFORM TEST-CUSTOM-HANDLER-REPLACE
            PERFORM TEST-CALLBACK-REPLY
            PERFORM TEST-DEFER
@@ -249,6 +261,18 @@
                    DELIMITED BY SIZE
                '"data":{"name":"/panel"}}' DELIMITED BY SIZE
                INTO WS-RAW-CUSTOM-CMD-JSON
+           END-STRING
+
+           MOVE SPACES TO WS-RAW-AUTOCOMPLETE-JSON
+           STRING
+               '{"id":"int-10","token":"tok-10","type":4,"guild_id":"guild-10",'
+                   DELIMITED BY SIZE
+               '"channel_id":"text-10","member":{"user":{"id":"user-10"}},'
+                   DELIMITED BY SIZE
+               '"data":{"name":"/suggest","options":[{"name":"query",'
+                   DELIMITED BY SIZE
+               '"value":"ja","focused":true}]}}' DELIMITED BY SIZE
+               INTO WS-RAW-AUTOCOMPLETE-JSON
            END-STRING
 
            MOVE SPACES TO WS-RAW-QUEUE-JSON
@@ -564,6 +588,15 @@
                FUNCTION TRIM(WS-COMPONENT-ROW-JSON) DELIMITED BY SIZE
                "}}" DELIMITED BY SIZE
                INTO WS-EXPECTED-UPDATE-COMPONENT-REPLY
+           END-STRING
+
+           MOVE SPACES TO WS-EXPECTED-AUTOCOMPLETE-REPLY
+           STRING
+               '{"type":8,"data":{"choices":[' DELIMITED BY SIZE
+               '{"name":"jazz","value":"jazz"},' DELIMITED BY SIZE
+               '{"name":"jazz-fusion","value":"jazz-fusion"}' DELIMITED BY SIZE
+               "]}}" DELIMITED BY SIZE
+               INTO WS-EXPECTED-AUTOCOMPLETE-REPLY
            END-STRING
 
            MOVE SPACES TO WS-EXPECTED-COMPONENT-REPLY
@@ -902,6 +935,38 @@
            PERFORM CHECK-OK
            IF FUNCTION TRIM(WS-TEXT) NOT = "hello world"
                DISPLAY "interaction-test: modal value mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-PARSE-AUTOCOMPLETE.
+           INITIALIZE DC-INTERACTION
+           CALL "DC-INTERACTION-FROM-JSON"
+               USING WS-RAW-AUTOCOMPLETE-JSON
+                     DC-INTERACTION
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-INTERACTION-TYPE NOT = 4
+               DISPLAY "interaction-test: autocomplete type mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(DC-COMMAND-NAME) NOT = "/suggest"
+               DISPLAY "interaction-test: autocomplete command mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           MOVE SPACES TO WS-FOCUSED-NAME
+           MOVE SPACES TO WS-FOCUSED-VALUE
+           CALL "DC-INTERACTION-GET-FOCUSED"
+               USING DC-INTERACTION
+                     WS-FOCUSED-NAME
+                     WS-FOCUSED-VALUE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-FOCUSED-NAME) NOT = "query"
+               DISPLAY "interaction-test: autocomplete focused name mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF FUNCTION TRIM(WS-FOCUSED-VALUE) NOT = "ja"
+               DISPLAY "interaction-test: autocomplete focused value mismatch"
                ADD 1 TO WS-FAILURES
            END-IF.
 
@@ -1348,6 +1413,40 @@
                ADD 1 TO WS-FAILURES
            END-IF.
 
+       TEST-BUILD-AUTOCOMPLETE.
+           CALL "DC-IA-CHOICES-INIT"
+               USING DC-INTERACTION-CHOICES
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "jazz" TO WS-CHOICE-NAME
+           MOVE "jazz" TO WS-CHOICE-VALUE
+           CALL "DC-IA-CHOICES-ADD"
+               USING DC-INTERACTION-CHOICES
+                     WS-CHOICE-NAME
+                     WS-CHOICE-VALUE
+                     DC-RESULT
+           PERFORM CHECK-OK
+           MOVE "jazz-fusion" TO WS-CHOICE-NAME
+           MOVE "jazz-fusion" TO WS-CHOICE-VALUE
+           CALL "DC-IA-CHOICES-ADD"
+               USING DC-INTERACTION-CHOICES
+                     WS-CHOICE-NAME
+                     WS-CHOICE-VALUE
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-IA-BUILD-AUTO"
+               USING DC-INTERACTION-CHOICES
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-EXPECTED-AUTOCOMPLETE-REPLY)
+               DISPLAY "interaction-test: autocomplete payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-BUILD-FOLLOWUP.
            MOVE SPACES TO WS-REPLY-PAYLOAD
            CALL "DC-INTERACTION-BUILD-FOLLOWUP"
@@ -1775,6 +1874,27 @@
            IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
                NOT = FUNCTION TRIM(WS-EXPECTED-COMPONENT-REPLY)
                DISPLAY "interaction-test: custom modal reply mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-CUSTOM-AUTOCOMPLETE-HANDLER.
+           CALL "DC-INTERACTION-ON-COMMAND"
+               USING DC-CLIENT
+                     WS-AUTOCOMPLETE-CMD-NAME
+                     WS-AUTO-HANDLER
+                     DC-RESULT
+           PERFORM CHECK-OK
+
+           MOVE SPACES TO WS-REPLY-PAYLOAD
+           CALL "DC-INTERACTION-HANDLE"
+               USING DC-CLIENT
+                     WS-RAW-AUTOCOMPLETE-JSON
+                     WS-REPLY-PAYLOAD
+                     DC-RESULT
+           PERFORM CHECK-OK
+           IF FUNCTION TRIM(WS-REPLY-PAYLOAD)
+               NOT = FUNCTION TRIM(WS-EXPECTED-AUTOCOMPLETE-REPLY)
+               DISPLAY "interaction-test: custom autocomplete mismatch"
                ADD 1 TO WS-FAILURES
            END-IF.
 
@@ -2596,6 +2716,8 @@
            IF DC-STATUS-CODE NOT = DC-STATUS-OK
                DISPLAY "interaction-test: unexpected result "
                    FUNCTION TRIM(DC-ERROR-CODE)
+                   " "
+                   FUNCTION TRIM(DC-ERROR-MESSAGE)
                END-DISPLAY
                ADD 1 TO WS-FAILURES
            END-IF.
@@ -2610,6 +2732,74 @@
            END-IF
            STOP RUN RETURNING WS-EXIT-CODE.
        END PROGRAM INTERACTION-TEST.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. TEST-IA-AUTO-HANDLER.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "discord-interaction-choice.cpy".
+       01 WS-FOCUSED-NAME PIC X(64).
+       01 WS-FOCUSED-VALUE PIC X(512).
+       01 WS-CHOICE-NAME PIC X(100).
+       01 WS-CHOICE-VALUE PIC X(100).
+       LINKAGE SECTION.
+       COPY "discord-client.cpy".
+       COPY "discord-interaction.cpy".
+       01 DC-REPLY-PAYLOAD PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CLIENT
+           DC-INTERACTION
+           DC-REPLY-PAYLOAD
+           DC-RESULT.
+       MAIN.
+           CALL "DC-INTERACTION-GET-FOCUSED"
+               USING DC-INTERACTION
+                     WS-FOCUSED-NAME
+                     WS-FOCUSED-VALUE
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = 0
+               GOBACK
+           END-IF
+
+           CALL "DC-IA-CHOICES-INIT"
+               USING DC-INTERACTION-CHOICES
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = 0
+               GOBACK
+           END-IF
+           IF FUNCTION TRIM(WS-FOCUSED-NAME) = "query"
+              AND FUNCTION TRIM(WS-FOCUSED-VALUE) = "ja"
+               MOVE "jazz" TO WS-CHOICE-NAME
+               MOVE "jazz" TO WS-CHOICE-VALUE
+               CALL "DC-IA-CHOICES-ADD"
+                   USING DC-INTERACTION-CHOICES
+                         WS-CHOICE-NAME
+                         WS-CHOICE-VALUE
+                         DC-RESULT
+               IF DC-STATUS-CODE NOT = 0
+                   GOBACK
+               END-IF
+               MOVE "jazz-fusion" TO WS-CHOICE-NAME
+               MOVE "jazz-fusion" TO WS-CHOICE-VALUE
+               CALL "DC-IA-CHOICES-ADD"
+                   USING DC-INTERACTION-CHOICES
+                         WS-CHOICE-NAME
+                         WS-CHOICE-VALUE
+                         DC-RESULT
+               IF DC-STATUS-CODE NOT = 0
+                   GOBACK
+               END-IF
+           END-IF
+
+           CALL "DC-IA-BUILD-AUTO"
+               USING DC-INTERACTION-CHOICES
+                     DC-REPLY-PAYLOAD
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM TEST-IA-AUTO-HANDLER.
 
        IDENTIFICATION DIVISION.
        PROGRAM-ID. TEST-IA-CMD-HANDLER.

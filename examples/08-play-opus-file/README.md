@@ -44,16 +44,16 @@ DISCORD_AUDIO_SOURCE=/absolute/path/to/file.ogg \
 ./build/examples/example-play-opus-file
 ```
 
-`DISCORD_STEP_COUNT` defaults to `0`, which keeps the bot loop running until the process is stopped.
+`DISCORD_STEP_COUNT` defaults to `0`. In that mode the example waits for `DISCORD_STOP_FILE`, or `.discord-cob.stop` when the variable is omitted.
 
-If `DISCORD_STOP_FILE` is set, the example uses `DC-BOT-RUN-UNTIL-FILE` instead. Creating that file cleanly ends the loop from outside the process.
+Creating the stop file cleanly ends the loop from outside the process. A positive `DISCORD_STEP_COUNT` selects the bounded runner instead.
 
 `DISCORD_IDLE_LEAVE_TICKS` controls how long an empty playback runtime waits before it automatically queues a voice leave. The default is `1200`.
 
 After the loop exits, the example explicitly calls `DC-BOT-SHUTDOWN` so stored voice/music runtime state and the Gateway session are closed before the process ends.
 
-Current limitations:
+Scope:
 
-- live Discord playback still depends on the existing negotiated voice-session path
-- only local Ogg Opus / Opus sources are in scope for this example
-- shutdown is file-driven rather than signal-aware
+- Voice negotiation and encrypted packet delivery are handled by the framework runtime.
+- This example accepts local Ogg Opus / Opus sources; downloading and transcoding are not included.
+- Use `DISCORD_STOP_FILE` for a clean, externally controlled shutdown.

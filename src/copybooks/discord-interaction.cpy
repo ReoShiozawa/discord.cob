@@ -23,6 +23,10 @@
           05 DC-COMMAND-OPTION OCCURS 25 TIMES.
              10 DC-COMMAND-OPTION-NAME PIC X(64).
              10 DC-COMMAND-OPTION-VALUE PIC X(512).
+      *> JP: autocomplete では focused な option を別枠でも覚えておきます。
+      *> EN: Autocomplete also keeps the focused option in a dedicated slot.
+          05 DC-INTERACTION-FOCUSED-NAME PIC X(64).
+          05 DC-INTERACTION-FOCUSED-VALUE PIC X(512).
       *> JP: select menu や modal input の値も同様に平坦化して保持します。
       *> EN: Select-menu and modal-input values are flattened in the same way.
           05 DC-INTERACTION-VALUE-COUNT PIC 9(4) COMP-5.

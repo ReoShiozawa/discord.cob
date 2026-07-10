@@ -75,7 +75,21 @@ PROCEDURE DIVISION USING DC-CLIENT DC-EVENT DC-RESULT.
 
 ## JSON
 
-The first implementation is a path reader, not a full DOM parser.
+The JSON layer is a validating fixed-buffer scanner and path reader rather than a full DOM parser.
+
+```cobol
+COPY "discord-json.cpy".
+
+CALL "DC-JSON-SCAN"
+    USING JSON-BUFFER
+          DC-JSON-TOKENS
+          DC-RESULT.
+
+CALL "DC-JSON-TOKENIZE"
+    USING JSON-BUFFER
+          TOKEN-COUNT
+          DC-RESULT.
+```
 
 ```cobol
 CALL "DC-JSON-GET-STRING"
@@ -98,6 +112,10 @@ Supported examples:
 - `$.s`
 - `$.d.session_id`
 - `$.d.heartbeat_interval`
+- `$.d.options[0].name`
+- `$.matrix[1][0]`
+
+String reads decode JSON escapes, including Unicode surrogate pairs. `DC-JSON-WRITE-STRING` escapes key/value strings before building a one-property object.
 
 ## RTP
 
@@ -113,8 +131,7 @@ CALL "DC-RTP-ADVANCE"
           DC-RESULT.
 ```
 
-The current packet builder is still the unencrypted RTP core.
-`DC-VOICE-SEND-FRAME` can send that raw RTP payload before encryption is negotiated, and it can also encrypt voice payloads for the currently supported Discord mode `aead_xchacha20_poly1305_rtpsize`.
+The RTP packet builder provides the unencrypted packet core. `DC-VOICE-SEND-FRAME` uses it directly for fixtures and encrypts negotiated live voice payloads with `aead_xchacha20_poly1305_rtpsize`.
 
 ## UDP
 
@@ -141,7 +158,7 @@ When no matching fixture exists, the current live path uses spawned `nc -u` proc
 
 ## HTTP
 
-Raw HTTP response parsing and mock-backed HTTPS request execution are available. Live sockets are still pending.
+Raw HTTP response parsing plus fixture-backed and live HTTPS request execution are available.
 
 ```cobol
 CALL "DC-HTTP-BUILD-REQUEST"
@@ -572,6 +589,37 @@ CALL "DC-INTERACTION-BUILD-DEFERRED"
     USING REPLY-PAYLOAD
           DC-RESULT.
 
+CALL "DC-INTERACTION-GET-FOCUSED"
+    USING DC-INTERACTION
+          FOCUSED-NAME
+          FOCUSED-VALUE
+          DC-RESULT.
+
+CALL "DC-IA-CHOICES-INIT"
+    USING DC-INTERACTION-CHOICES
+          DC-RESULT.
+
+CALL "DC-IA-CHOICES-ADD"
+    USING DC-INTERACTION-CHOICES
+          CHOICE-NAME
+          CHOICE-VALUE
+          DC-RESULT.
+
+CALL "DC-IA-CHOICES-TO-JSON"
+    USING DC-INTERACTION-CHOICES
+          CHOICES-JSON
+          DC-RESULT.
+
+CALL "DC-INTERACTION-BUILD-AUTO"
+    USING CHOICES-JSON
+          REPLY-PAYLOAD
+          DC-RESULT.
+
+CALL "DC-IA-BUILD-AUTO"
+    USING DC-INTERACTION-CHOICES
+          REPLY-PAYLOAD
+          DC-RESULT.
+
 CALL "DC-INTERACTION-BUILD-UPDATE"
     USING REPLY-CONTENT
           REPLY-PAYLOAD
@@ -834,10 +882,12 @@ CALL "DC-INTERACTION-REGISTER"
 Current coverage:
 
 - raw and wrapped `INTERACTION_CREATE` JSON parsing
-- application command, component, and modal-submit field extraction
+- application command, autocomplete, component, and modal-submit field extraction
+- focused autocomplete option lookup
 - custom command, component, and modal handler registration plus dispatch
+- command-name-based autocomplete dispatch through the same custom handler table
 - slash-command routing into `/join`, `/leave`, `/play`, `/skip`, `/pause`, `/resume`, `/stop`, `/queue`, `/remove`, `/clearqueue`, and `/nowplaying`
-- immediate, embed, update, modal, ephemeral, and deferred response payload construction
+- immediate, embed, update, modal, ephemeral, deferred, and autocomplete response payload construction
 - JSON-safe escaping for reply, embed, update, and follow-up content payloads
 - music-specific custom interaction handlers for `/nowplaying` and `/queue` with button rows and embed-based panel replies
 - callback, follow-up create/wait/get/edit/delete, and original-response get/edit/delete HTTP helpers
@@ -846,6 +896,7 @@ Current coverage:
 - message-id extraction from follow-up/original response JSON
 - JSON-to-edit/delete follow-up lifecycle helpers
 - one-call wait-to-edit and wait-to-delete follow-up lifecycle helpers
+- structured autocomplete choice-table helpers plus raw-choice JSON fallback
 - component select and modal input value lookup helpers
 - dispatcher-friendly handler registration through `DC-INTERACTION-REGISTER`
 

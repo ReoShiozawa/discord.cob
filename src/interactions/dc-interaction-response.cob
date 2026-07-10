@@ -265,6 +265,252 @@
        END PROGRAM DC-INTERACTION-BUILD-FOLLOWUP.
 
        IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-IA-CHOICES-INIT.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-interaction-choice.cpy".
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-INTERACTION-CHOICES
+           DC-RESULT.
+       MAIN.
+      *> JP: autocomplete choice table を空に戻す明示的な初期化 helper です。
+      *> EN: Explicit initializer that resets the autocomplete choice table.
+           INITIALIZE DC-INTERACTION-CHOICES
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-IA-CHOICES-INIT.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-IA-CHOICES-ADD.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       COPY "discord-interaction-choice.cpy".
+       01 DC-CHOICE-NAME-IN PIC X(100).
+       01 DC-CHOICE-VALUE-IN PIC X(100).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-INTERACTION-CHOICES
+           DC-CHOICE-NAME-IN
+           DC-CHOICE-VALUE-IN
+           DC-RESULT.
+       MAIN.
+      *> JP: autocomplete choice を 1 件追加します。
+      *> EN: Append one autocomplete choice entry.
+           IF FUNCTION TRIM(DC-CHOICE-NAME-IN) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Autocomplete choice name is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+           IF FUNCTION TRIM(DC-CHOICE-VALUE-IN) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Autocomplete choice value is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+           IF DC-IA-CHOICE-COUNT >= DC-IA-CHOICES-MAX
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Autocomplete choices exceeded the supported limit."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           ADD 1 TO DC-IA-CHOICE-COUNT
+           MOVE DC-CHOICE-NAME-IN
+               TO DC-IA-CHOICE-NAME(DC-IA-CHOICE-COUNT)
+           MOVE DC-CHOICE-VALUE-IN
+               TO DC-IA-CHOICE-VALUE(DC-IA-CHOICE-COUNT)
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-IA-CHOICES-ADD.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-IA-CHOICES-TO-JSON.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-IDX PIC 9(4) COMP-5.
+       01 WS-JSON-POS PIC 9(5) COMP-5.
+       01 WS-OVERFLOW-FLAG PIC 9.
+       01 WS-ESCAPE-IN PIC X(2000).
+       01 WS-ESCAPED-NAME PIC X(4096).
+       01 WS-ESCAPED-VALUE PIC X(4096).
+       01 WS-ESCAPE-RESULT.
+          05 WS-ESCAPE-STATUS-CODE PIC S9(9) COMP-5.
+          05 WS-ESCAPE-ERROR-CODE PIC X(64).
+          05 WS-ESCAPE-ERROR-MESSAGE PIC X(256).
+       LINKAGE SECTION.
+       COPY "discord-interaction-choice.cpy".
+       01 DC-CHOICES-JSON PIC X(4096).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-INTERACTION-CHOICES
+           DC-CHOICES-JSON
+           DC-RESULT.
+       MAIN.
+      *> JP: 構造化した autocomplete choices を安定した JSON 配列へ変換します。
+      *> EN: Convert structured autocomplete choices into a stable JSON array.
+           MOVE SPACES TO DC-CHOICES-JSON
+           MOVE 1 TO WS-JSON-POS
+           MOVE 0 TO WS-OVERFLOW-FLAG
+
+           STRING "[" DELIMITED BY SIZE
+               INTO DC-CHOICES-JSON
+               WITH POINTER WS-JSON-POS
+               ON OVERFLOW MOVE 1 TO WS-OVERFLOW-FLAG
+           END-STRING
+
+           PERFORM VARYING WS-IDX FROM 1 BY 1
+               UNTIL WS-IDX > DC-IA-CHOICE-COUNT
+                   OR DC-STATUS-CODE = DC-STATUS-ERROR
+               IF WS-IDX > 1
+                   STRING "," DELIMITED BY SIZE
+                       INTO DC-CHOICES-JSON
+                       WITH POINTER WS-JSON-POS
+                       ON OVERFLOW MOVE 1 TO WS-OVERFLOW-FLAG
+                   END-STRING
+               END-IF
+
+               MOVE SPACES TO WS-ESCAPE-IN
+               MOVE DC-IA-CHOICE-NAME(WS-IDX) TO WS-ESCAPE-IN
+               MOVE SPACES TO WS-ESCAPED-NAME
+               CALL "DC-INTERACTION-ESCAPE-TEXT"
+                   USING WS-ESCAPE-IN
+                         WS-ESCAPED-NAME
+                         WS-ESCAPE-RESULT
+               IF WS-ESCAPE-STATUS-CODE NOT = DC-STATUS-OK
+                   MOVE WS-ESCAPE-STATUS-CODE TO DC-STATUS-CODE
+                   MOVE WS-ESCAPE-ERROR-CODE TO DC-ERROR-CODE
+                   MOVE WS-ESCAPE-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+                   EXIT PERFORM
+               END-IF
+
+               MOVE SPACES TO WS-ESCAPE-IN
+               MOVE DC-IA-CHOICE-VALUE(WS-IDX) TO WS-ESCAPE-IN
+               MOVE SPACES TO WS-ESCAPED-VALUE
+               CALL "DC-INTERACTION-ESCAPE-TEXT"
+                   USING WS-ESCAPE-IN
+                         WS-ESCAPED-VALUE
+                         WS-ESCAPE-RESULT
+               IF WS-ESCAPE-STATUS-CODE NOT = DC-STATUS-OK
+                   MOVE WS-ESCAPE-STATUS-CODE TO DC-STATUS-CODE
+                   MOVE WS-ESCAPE-ERROR-CODE TO DC-ERROR-CODE
+                   MOVE WS-ESCAPE-ERROR-MESSAGE TO DC-ERROR-MESSAGE
+                   EXIT PERFORM
+               END-IF
+
+               STRING
+                   '{"name":"' DELIMITED BY SIZE
+                   FUNCTION TRIM(WS-ESCAPED-NAME) DELIMITED BY SIZE
+                   '","value":"' DELIMITED BY SIZE
+                   FUNCTION TRIM(WS-ESCAPED-VALUE) DELIMITED BY SIZE
+                   '"}' DELIMITED BY SIZE
+                   INTO DC-CHOICES-JSON
+                   WITH POINTER WS-JSON-POS
+                   ON OVERFLOW MOVE 1 TO WS-OVERFLOW-FLAG
+               END-STRING
+           END-PERFORM
+           IF DC-STATUS-CODE = DC-STATUS-ERROR
+               GOBACK
+           END-IF
+
+           STRING "]" DELIMITED BY SIZE
+               INTO DC-CHOICES-JSON
+               WITH POINTER WS-JSON-POS
+               ON OVERFLOW MOVE 1 TO WS-OVERFLOW-FLAG
+           END-STRING
+
+           IF WS-OVERFLOW-FLAG = 1
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Autocomplete choices JSON exceeded the buffer."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-IA-CHOICES-TO-JSON.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-INTERACTION-BUILD-AUTO.
+
+       DATA DIVISION.
+       LINKAGE SECTION.
+       01 DC-CHOICES-JSON PIC X(4096).
+       01 DC-REPLY-PAYLOAD PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-CHOICES-JSON
+           DC-REPLY-PAYLOAD
+           DC-RESULT.
+       MAIN.
+      *> JP: raw JSON choices 断片から autocomplete response(type=8)を組み立てます。
+      *> EN: Build an autocomplete response (type=8) from a raw JSON choices fragment.
+           IF FUNCTION TRIM(DC-CHOICES-JSON) = SPACES
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
+               MOVE "Autocomplete choices JSON is required."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+
+           MOVE SPACES TO DC-REPLY-PAYLOAD
+           STRING
+               '{"type":8,"data":{"choices":' DELIMITED BY SIZE
+               FUNCTION TRIM(DC-CHOICES-JSON) DELIMITED BY SIZE
+               "}}" DELIMITED BY SIZE
+               INTO DC-REPLY-PAYLOAD
+           END-STRING
+           CALL "DC-RESULT-OK" USING DC-RESULT
+           GOBACK.
+       END PROGRAM DC-INTERACTION-BUILD-AUTO.
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DC-IA-BUILD-AUTO.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-CHOICES-JSON PIC X(4096).
+       LINKAGE SECTION.
+       COPY "discord-interaction-choice.cpy".
+       01 DC-REPLY-PAYLOAD PIC X(8192).
+       COPY "discord-result.cpy".
+
+       PROCEDURE DIVISION USING
+           DC-INTERACTION-CHOICES
+           DC-REPLY-PAYLOAD
+           DC-RESULT.
+       MAIN.
+      *> JP: 構造化 choices table から schema-safe な autocomplete payload を作ります。
+      *> EN: Build a schema-safe autocomplete payload from the structured choice table.
+           MOVE SPACES TO WS-CHOICES-JSON
+           CALL "DC-IA-CHOICES-TO-JSON"
+               USING DC-INTERACTION-CHOICES
+                     WS-CHOICES-JSON
+                     DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               GOBACK
+           END-IF
+
+           CALL "DC-INTERACTION-BUILD-AUTO"
+               USING WS-CHOICES-JSON
+                     DC-REPLY-PAYLOAD
+                     DC-RESULT
+           GOBACK.
+       END PROGRAM DC-IA-BUILD-AUTO.
+
+       IDENTIFICATION DIVISION.
        PROGRAM-ID. DC-IA-BUILD-EMBED.
 
        DATA DIVISION.

@@ -31,6 +31,7 @@
        01 WS-OPTION-JSON PIC X(1024).
        01 WS-OPTION-NAME PIC X(64).
        01 WS-OPTION-VALUE PIC X(512).
+       01 WS-FOCUSED-FLAG PIC 9.
        01 WS-OPTION-TABLE-FULL PIC 9.
        01 WS-VALUE-NAME PIC X(128).
        01 WS-TYPE-NUM PIC S9(18) COMP-5.
@@ -461,6 +462,8 @@
 
        PARSE-OPTIONS.
            MOVE 0 TO DC-COMMAND-OPTION-COUNT
+           MOVE SPACES TO DC-INTERACTION-FOCUSED-NAME
+           MOVE SPACES TO DC-INTERACTION-FOCUSED-VALUE
            MOVE 0 TO WS-OPTION-TABLE-FULL
            CALL "DC-JSON-LOCATE-PATH"
                USING DC-INTERACTION-JSON
@@ -813,20 +816,17 @@
            MOVE SPACES TO WS-OPTION-JSON
            MOVE SPACES TO WS-OPTION-NAME
            MOVE SPACES TO WS-OPTION-VALUE
+           MOVE 0 TO WS-FOCUSED-FLAG
            IF WS-OBJECT-LENGTH > 0
                MOVE DC-INTERACTION-JSON(
                    WS-OBJECT-START:WS-OBJECT-LENGTH)
                    TO WS-OPTION-JSON(1:WS-OBJECT-LENGTH)
            END-IF
-
            MOVE "name" TO WS-FIELD-LABEL
            MOVE 4 TO WS-FIELD-LABEL-LEN
            PERFORM LOCATE-OPTION-FIELD
            IF WS-FIELD-POS = 0
-               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-               MOVE "DC_ERR_INTERACTION_PARSE" TO DC-ERROR-CODE
-               MOVE "Interaction option name field was missing."
-                   TO DC-ERROR-MESSAGE
+               CALL "DC-RESULT-OK" USING DC-RESULT
                EXIT PARAGRAPH
            END-IF
            PERFORM PARSE-STRING-FIELD-VALUE
@@ -848,11 +848,28 @@
                EXIT PARAGRAPH
            END-IF
 
+           MOVE "focused" TO WS-FIELD-LABEL
+           MOVE 7 TO WS-FIELD-LABEL-LEN
+           PERFORM LOCATE-OPTION-FIELD
+           IF WS-FIELD-POS > 0
+               PERFORM POSITION-FIELD-VALUE
+               IF DC-STATUS-CODE NOT = DC-STATUS-OK
+                   EXIT PARAGRAPH
+               END-IF
+               IF WS-OPTION-JSON(WS-VALUE-POS:4) = "true"
+                   MOVE 1 TO WS-FOCUSED-FLAG
+               END-IF
+           END-IF
+
            ADD 1 TO DC-COMMAND-OPTION-COUNT
            MOVE WS-OPTION-NAME
                TO DC-COMMAND-OPTION-NAME(DC-COMMAND-OPTION-COUNT)
            MOVE WS-OPTION-VALUE
-               TO DC-COMMAND-OPTION-VALUE(DC-COMMAND-OPTION-COUNT).
+               TO DC-COMMAND-OPTION-VALUE(DC-COMMAND-OPTION-COUNT)
+           IF WS-FOCUSED-FLAG = 1
+               MOVE WS-OPTION-NAME TO DC-INTERACTION-FOCUSED-NAME
+               MOVE WS-OPTION-VALUE TO DC-INTERACTION-FOCUSED-VALUE
+           END-IF.
 
        ADD-INTERACTION-VALUE.
       *> JP: interaction values は select/modal 共通の lookup テーブルです。
@@ -1009,6 +1026,7 @@
        COPY "discord-interaction.cpy".
        COPY "discord-music.cpy".
        01 WS-REPLY-CONTENT PIC X(2000).
+       01 WS-EMPTY-CHOICES-JSON PIC X(8) VALUE "[]".
        01 WS-NOWPLAYING-TEXT PIC X(2000).
        01 WS-FILE-OPTION PIC X(64) VALUE "file".
        01 WS-INDEX-OPTION PIC X(64) VALUE "index".
@@ -1064,10 +1082,17 @@
            END-IF
 
            IF FUNCTION TRIM(DC-REPLY-PAYLOAD) = SPACES
-               CALL "DC-INTERACTION-BUILD-REPLY"
-                   USING WS-REPLY-CONTENT
-                         DC-REPLY-PAYLOAD
-                         DC-RESULT
+               IF DC-INTERACTION-TYPE = 4
+                   CALL "DC-INTERACTION-BUILD-AUTO"
+                       USING WS-EMPTY-CHOICES-JSON
+                             DC-REPLY-PAYLOAD
+                             DC-RESULT
+               ELSE
+                   CALL "DC-INTERACTION-BUILD-REPLY"
+                       USING WS-REPLY-CONTENT
+                             DC-REPLY-PAYLOAD
+                             DC-RESULT
+               END-IF
                IF DC-STATUS-CODE NOT = DC-STATUS-OK
                    GOBACK
                END-IF
@@ -1081,6 +1106,9 @@
       *> EN: This keeps a human-readable confirmation message even for older built-in command flows.
            IF DC-INTERACTION-TYPE = 3
                MOVE "Component handled." TO WS-REPLY-CONTENT
+               EXIT PARAGRAPH
+           END-IF
+           IF DC-INTERACTION-TYPE = 4
                EXIT PARAGRAPH
            END-IF
            IF DC-INTERACTION-TYPE = 5

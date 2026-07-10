@@ -3,7 +3,7 @@
 [English README](README.md)
 
 `discord.cob` は、COBOL で Discord Bot を実装するためのオープンソースプロジェクトです。
-単に「COBOL から HTTP を呼んでみる」サンプルにとどまらず、Discord Gateway、WebSocket、Voice、UDP、RTP、音声暗号化、Music Bot といった周辺まで、段階的に実装していくことを目指しています。
+単に「COBOL から HTTP を呼んでみる」サンプルにとどまらず、Discord Gateway、WebSocket、Voice、UDP、RTP、音声暗号化、Music Bot までをひとつの実行経路として扱います。
 
 最終的な狙いは、Bot 開発者が毎回 Discord の生プロトコルを追わなくても、COBOL から扱いやすい API を通して Bot を組み立てられるようにすることです。
 
@@ -11,7 +11,7 @@
 
 - このリポジトリが何を目指しているか
 - 現時点でどこまで実装が進んでいるか
-- いま触るなら何が使えて、何はまだ途中か
+- いま利用できる範囲と、あらかじめ知っておきたい制約
 - ビルド方法、テスト方法、読み始めるときの入口
 
 ## これは何のプロジェクトか
@@ -20,33 +20,31 @@
 
 1. COBOL で現代的なネットワークプロトコルをどこまで扱えるかを確かめること
 2. Discord Bot に必要な低レイヤを、少しずつライブラリとして整理していくこと
-3. 最終的に、Voice 対応の Music Bot を COBOL で動かせるところまで持っていくこと
+3. Voice 対応の Music Bot を COBOL で動かし、保守できる形にすること
 
-そのため、このリポジトリは現時点では「完成済みの Bot フレームワーク」というより、「動く土台を着実に積み上げている実装リポジトリ」と捉えるのが実態に近いです。
+最初の設計マイルストーンは実装済みです。Gateway への接続から Voice negotiation、暗号化した Opus packet の UDP 送信、Interaction を使った Music Bot 操作までが、同じ公開 API の上でつながっています。
 
 ## 現在地
 
-このリポジトリは pre-alpha 段階です。
+このリポジトリは、実験的な 0.x 系の OSS です。
 
-ただし、まだ構想だけの状態ではありません。すでにコードとテストが揃っていて、継続的に積み上がっているレイヤがいくつもあります。
+主要なレイヤには実装と自動テストがあり、次の機能をリポジトリ内で確認できます。
 
 - core client state と result helper
 - event の登録と dispatch
-- Discord 向け JSON validation と JSON path 抽出
+- 深さと配列を考慮した JSON validation / tokenization / path 抽出と文字列 escape
 - HTTP request / response の組み立てと解析、GET / POST / PUT / PATCH / DELETE の実行
 - in-memory の TCP / TLS fixture transport
 - `nc` / `openssl s_client` を使った OS ベースの TCP / TLS transport
 - WebSocket handshake helper
-- WebSocket frame の encode / decode
+- WebSocket frame の encode / decode、分割受信の蓄積、continuation の再構成、close 処理
 - in-memory WebSocket session
 - opt-in の live TLS-backed WebSocket session
 - fixture-backed / OS-backed の UDP transport
 - RTP packet 生成
-- music queue の基礎
+- music queue と local Ogg Opus の再生管理
 
-また、現時点では「すでに動いているところ」と「これから厚くしていくところ」が比較的はっきり分かれています。
-
-すでに通っている実装:
+対応済みの実装:
 
 - live Discord Gateway への connect / login と最小の event loop
 - tick ベースで進む Gateway / Voice heartbeat scheduler
@@ -54,27 +52,29 @@
 - Voice の select protocol / speaking payload builder、UDP discovery の自動適用、session description の `secret_key` 取り込み、送信キュー
 - `aead_xchacha20_poly1305_rtpsize` による voice packet 暗号化
 - Ogg Opus からの初期 packet 抽出と reader handle の close
-- queue に積んだ `.ogg` / `.opus` ソースを Voice tick にぶら下げて raw/local 送信する再生土台
+- queue に積んだ `.ogg` / `.opus` ソースを、negotiation 済みの Voice session から暗号化して送信する再生経路
 - `/join` `/leave` `/play` `/skip` `/pause` `/resume` `/stop` `/queue` `/remove` `/clearqueue` `/nowplaying` を music / voice API に接続する command routing
 - `/nowplaying` と `/queue` に対する custom interaction panel と、その場で操作できる inline control
 - slash command の HTTP registration / list / delete / overwrite と、music command 一式を同期する helper
-- slash command / component / modal submit の interaction JSON 取り込み、custom handler routing、即時 / update / modal / deferred / follow-up reply helper、follow-up / original response の get / wait / edit / delete helper、callback POST、dispatcher 経由で登録できる interaction handler
+- slash command / autocomplete / component / modal submit の interaction JSON 取り込み、focused option lookup、command / component / modal の custom handler routing と command ベースの autocomplete dispatch、即時 / update / modal / deferred / follow-up / autocomplete reply helper、follow-up / original response の get / wait / edit / delete helper、callback POST、dispatcher 経由で登録できる interaction handler
 
-引き続き開発中の領域:
+現時点で意図的に範囲外としているもの:
 
-- Gateway reconnect と heartbeat 異常時の扱い
-- 暗号化を含む end-to-end の music bot workflow
+- YouTube 等からの取得、任意形式の transcoding、PCM からの Opus encoding
+- Discord の DAVE/E2EE 拡張
+- `openssl s_client` / `nc` に依存しない、COBOL 内だけで完結する TLS/TCP 実装
+- 実アカウントを使う自動 E2E テスト。通常のテスト suite は fixture 上で完結します
 
 ## いまこのリポジトリでできること
 
-現時点で特に触りやすいのは、次のような用途です。
+特に向いているのは、次のような用途です。
 
 - COBOL で Discord 向けの HTTP / WebSocket / RTP レイヤの実装例を読む
 - protocol primitive のテストを追加しながら低レイヤを拡張する
-- Gateway / Voice 実装の前段として request builder や state 管理を進める
+- local Ogg Opus を使う小規模な Voice Bot を組み立てる
 - GnuCOBOL で realtime / network 処理をどこまで寄せられるか検証する
 
-逆に、すぐに production 向け Bot を立ち上げたい場合には、まだ向いていません。
+大規模な production Bot で成熟した Discord ライブラリの代替として採用する段階ではありません。
 
 ## 設計の考え方
 
@@ -86,7 +86,7 @@
 4. その上で、Bot 作者向け API を薄く整理する
 
 この順番にしているのは、Discord まわりの処理が最終的に WebSocket、Voice、UDP、RTP、暗号化まで連続してつながるためです。
-上位 API だけを先に作ると、あとから下の層の事情で大きく引きずられやすくなります。そのため、いまは意図的に低レイヤを厚めに作っています。
+上位 API だけを先に作ると、あとから下の層の事情で設計変更が広がりやすくなります。この方針に沿って、公開 API と protocol layer を同じテスト suite で確認しています。
 
 ## リポジトリ構成
 
@@ -96,10 +96,10 @@ src/
   json/          JSON validation と path reader
   net/           HTTP / transport / WebSocket
   gateway/       Gateway payload builder と event mapping
-  voice/         voice session state と Voice まわりの土台
+  voice/         Voice Gateway、session state、UDP negotiation
   rtp/           RTP packet と sequence / timestamp helper
   crypto/        voice encryption レイヤ
-  opus/          Opus helper と reader / encoder 周辺
+  opus/          Ogg Opus reader と packet helper
   audio/         playback 側の抽象
   music/         queue と command helper
   copybooks/     共通 data definition
@@ -109,9 +109,9 @@ tests/           実行可能な COBOL test
 docs/            API メモと roadmap
 ```
 
-## 目指している API の形
+## 公開 API の形
 
-最終的には、利用側から素直に呼べる COBOL API を用意したいと考えています。
+利用側は、Discord の wire format を直接組み立てず、次のような COBOL API を呼び出します。
 
 ```cobol
 CALL "DC-CLIENT-INIT"
@@ -130,7 +130,7 @@ CALL "DC-LOGIN"
           DC-RESULT.
 ```
 
-この上位 API 自体はまだ発展途上ですが、その土台になる transport や protocol primitive はかなり揃ってきました。登録した handler program は `CALL handler USING DC-CLIENT DC-EVENT DC-RESULT` の形で呼び出されます。
+この API は Gateway、Interaction、Voice、Music Bot の各サンプルで実際に使われています。登録した handler program は `CALL handler USING DC-CLIENT DC-EVENT DC-RESULT` の形で呼び出されます。
 
 ## クイックスタート
 
@@ -139,11 +139,12 @@ CALL "DC-LOGIN"
 - GnuCOBOL
 - `cobc`
 - `libsodium`
+- live transport 用の OpenSSL と netcat
 
 macOS で Homebrew を使う場合:
 
 ```sh
-brew install gnucobol libsodium pkg-config
+brew install gnucobol libsodium pkg-config openssl netcat
 ```
 
 ### ビルド
@@ -156,6 +157,12 @@ make build
 
 ```sh
 make test
+```
+
+段階別サンプルをまとめてビルドする場合:
+
+```sh
+make examples
 ```
 
 主なテスト:
@@ -176,18 +183,16 @@ make test
 
 ### サンプル実行
 
-HTTP まわりのサンプルは次のように実行できます。
+`make examples` の後、実行ファイルは `build/examples/` に生成されます。Music Bot の入口は次のとおりです。
 
 ```sh
-mkdir -p build/examples
-cobc -free -Wall -I src/copybooks -x \
-  -o build/examples/example-http \
-  examples/01-rest-message/main.cob \
-  $(find src -name '*.cob' | sort)
-./build/examples/example-http
+DISCORD_TOKEN=... \
+DISCORD_APPLICATION_ID=... \
+DISCORD_GUILD_ID=... \
+./build/examples/09-music-bot
 ```
 
-Gateway 側の入口イメージを見たい場合は [examples/02-gateway-ready/main.cob](examples/02-gateway-ready/main.cob) が分かりやすいです。
+必要な環境変数と停止方法は [examples/09-music-bot/README.md](examples/09-music-bot/README.md) にまとめています。
 
 ## 設定方針
 
@@ -198,7 +203,7 @@ Discord token はソースコードに埋め込まない方針です。
 - `.env.example`
 - `.env` を除外する `.gitignore`
 
-今後も、認証情報は環境変数や設定ファイル経由で扱う前提で整えていきます。
+実行サンプルも、この方針に沿って環境変数から認証情報を読み込みます。
 
 ## どこから読むと追いやすいか
 
@@ -213,15 +218,15 @@ Discord token はソースコードに埋め込まない方針です。
 
 ## ロードマップ
 
-近い優先項目は次の通りです。
+最初の設計マイルストーン後は、次の改善を優先します。
 
-1. Gateway reconnect / heartbeat 異常時のライフサイクルを厚くする
-2. 音声暗号化まわりをさらに厚くする
-3. embed を含む interaction builder と command sync の使い勝手を厚くする
-4. 暗号化込みの end-to-end playback を成立させる
-5. music bot の上位 example を増やす
+1. reconnect や rate limit を含む実 Discord 上での互換性検証
+2. macOS / GnuCOBOL 以外への portability 改善
+3. 大きな payload を扱う streaming / buffer 設計
+4. PCM transcoding / encoding の任意連携
+5. Discord の仕様変化に応じた DAVE 対応
 
-長期目標は、Voice channel に参加して音声再生できる COBOL 製 Discord Music Bot を成立させることです。
+当初の目標だった「Voice channel に参加し、暗号化した Opus 音声を送る COBOL 製 Music Bot」は、`08-play-opus-file` と `09-music-bot` で確認できます。
 
 ## コントリビュート
 
@@ -234,6 +239,7 @@ Discord token はソースコードに埋め込まない方針です。
 - example と documentation の改善
 
 小さめの変更でも、テストが一緒にあるとレビューしやすくなります。
+開発手順とリポジトリ固有の約束は [CONTRIBUTING.md](CONTRIBUTING.md) にまとめています。
 
 ## 関連ドキュメント
 

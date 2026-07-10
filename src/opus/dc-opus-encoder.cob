@@ -36,9 +36,25 @@
 
        PROCEDURE DIVISION USING DC-OPUS-FRAME DC-RESULT.
        MAIN.
-           MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
-           MOVE "DC_ERR_OPUS_UNSUPPORTED" TO DC-ERROR-CODE
-           MOVE "Opus encoding is not implemented yet."
-               TO DC-ERROR-MESSAGE
+      *> JP: 旧 API は PCM 入力を持たないため、既存 packet の検証・正規化を行います。
+      *> JP: 空 frame は Discord 推奨の 20ms silence packet に変換します。
+      *> EN: This legacy API has no PCM input, so it validates and normalizes
+      *> EN: an existing Opus packet. An empty frame becomes 20ms silence.
+           IF DC-OPUS-LENGTH = 0
+               CALL "DC-OPUS-BUILD-SILENCE"
+                   USING DC-OPUS-FRAME DC-RESULT
+               GOBACK
+           END-IF
+           IF DC-OPUS-LENGTH < 0 OR DC-OPUS-LENGTH > 4096
+               MOVE DC-STATUS-ERROR TO DC-STATUS-CODE
+               MOVE "DC_ERR_OPUS_FRAME" TO DC-ERROR-CODE
+               MOVE "Opus frame length must be between 0 and 4096 bytes."
+                   TO DC-ERROR-MESSAGE
+               GOBACK
+           END-IF
+           IF DC-OPUS-DURATION-MS = 0
+               MOVE 20 TO DC-OPUS-DURATION-MS
+           END-IF
+           CALL "DC-RESULT-OK" USING DC-RESULT
            GOBACK.
        END PROGRAM DC-OPUS-ENCODE.

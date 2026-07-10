@@ -62,6 +62,30 @@
                STOP RUN RETURNING WS-EXIT-CODE
            END-IF
 
+           INITIALIZE DC-AEAD-CONTEXT
+           PERFORM VARYING WS-IDX FROM 1 BY 1 UNTIL WS-IDX > 32
+               MOVE FUNCTION CHAR(WS-IDX + 1) TO DC-AEAD-KEY(WS-IDX:1)
+           END-PERFORM
+           MOVE 32 TO DC-AEAD-KEY-LENGTH
+           MOVE LOW-VALUE TO DC-AEAD-NONCE
+           MOVE 24 TO DC-AEAD-NONCE-LENGTH
+           CALL "DC-CHACHA20-BLOCK" USING DC-AEAD-CONTEXT DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+              OR DC-AEAD-CIPHERTEXT-LENGTH NOT = 64
+               DISPLAY "crypto-test: XChaCha20 helper failed"
+               MOVE 1 TO WS-EXIT-CODE
+               STOP RUN RETURNING WS-EXIT-CODE
+           END-IF
+           MOVE "authenticated message" TO DC-AEAD-PLAINTEXT
+           MOVE 21 TO DC-AEAD-PLAINTEXT-LENGTH
+           CALL "DC-POLY1305-TAG" USING DC-AEAD-CONTEXT DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+              OR DC-AEAD-TAG-LENGTH NOT = 16
+               DISPLAY "crypto-test: Poly1305 helper failed"
+               MOVE 1 TO WS-EXIT-CODE
+               STOP RUN RETURNING WS-EXIT-CODE
+           END-IF
+
            INITIALIZE DC-VOICE-SESSION
            MOVE "aead_xchacha20_poly1305_rtpsize"
                TO DC-VS-ENCRYPTION-MODE

@@ -130,11 +130,13 @@
       *> EN: Fully tear down and reset the voice session.
       *> JP: ここは WS/TLS と UDP の両方を閉じるので、再接続前の共通出口でもあります。
       *> EN: This closes both WS/TLS and UDP, so it also serves as the common exit before reconnect.
-           IF DC-VS-WS-LIVE-FLAG = 1
-              AND DC-VS-WS-HANDLE > 0
-               CALL "DC-TLS-CLOSE"
-                   USING DC-VS-WS-HANDLE
-                         WS-LOCAL-RESULT
+           IF DC-VS-WS-OPEN-FLAG = 1
+               CALL "DC-VOICE-GATEWAY-SESSION-LOAD"
+                   USING DC-VOICE-SESSION DC-WS-SESSION WS-LOCAL-RESULT
+               IF WS-LOCAL-STATUS-CODE = DC-STATUS-OK
+                   CALL "DC-WS-CLOSE"
+                       USING DC-WS-SESSION WS-LOCAL-RESULT
+               END-IF
            END-IF
            MOVE SPACES TO DC-VS-GATEWAY-URL
            MOVE SPACES TO DC-VS-IP

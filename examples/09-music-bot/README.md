@@ -41,9 +41,9 @@ DISCORD_GUILD_ID=... \
 ./build/examples/example-music-bot
 ```
 
-`DISCORD_STEP_COUNT` defaults to `0`, which means the process keeps running until it is stopped.
+`DISCORD_STEP_COUNT` defaults to `0`. In that mode the example uses `DISCORD_STOP_FILE`, or `.discord-cob.stop` when the variable is omitted, so the runtime can leave Voice and close WebSocket sessions cleanly.
 
-If `DISCORD_STOP_FILE` is set, the example uses `DC-BOT-RUN-UNTIL-FILE` instead. Creating that file cleanly ends the loop from outside the process.
+Creating the stop file cleanly ends the loop from outside the process. A positive `DISCORD_STEP_COUNT` selects the bounded runner instead.
 
 `DISCORD_IDLE_LEAVE_TICKS` controls how many idle bot ticks an empty music runtime waits before it automatically queues a voice leave. The default is `1200`.
 

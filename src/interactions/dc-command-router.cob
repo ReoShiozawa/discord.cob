@@ -208,7 +208,9 @@
       *> JP: Interaction type ごとに登録済み handler を探し、見つかればその program を呼びます。
       *> EN: Resolve the registered handler by interaction type and call it if found.
       *> JP: Command は custom handler を優先し、未登録なら built-in router へフォールバックします。
+      *> JP: autocomplete(type=4) も command 名ベースの custom handler を再利用します。
       *> EN: Commands prefer custom handlers and fall back to the built-in router when absent.
+      *> EN: Autocomplete interactions (type=4) reuse command-name custom handlers.
            MOVE SPACES TO WS-PROGRAM-NAME
            MOVE 0 TO WS-FOUND-FLAG
 
@@ -239,6 +241,21 @@
                        MOVE DC-STATUS-NOT-FOUND TO DC-STATUS-CODE
                        MOVE "DC_ERR_COMPONENT_NOT_FOUND" TO DC-ERROR-CODE
                        MOVE "Component interaction is not registered."
+                           TO DC-ERROR-MESSAGE
+                   END-IF
+               WHEN 4
+                   PERFORM FIND-COMMAND-HANDLER
+                   IF WS-FOUND-FLAG = 1
+                       CALL WS-PROGRAM-NAME
+                           USING DC-CLIENT
+                                 DC-INTERACTION
+                                 DC-REPLY-PAYLOAD
+                                 DC-RESULT
+                   ELSE
+                       MOVE DC-STATUS-NOT-FOUND TO DC-STATUS-CODE
+                       MOVE "DC_ERR_AUTOCOMPLETE_NOT_FOUND"
+                           TO DC-ERROR-CODE
+                       MOVE "Autocomplete interaction is not registered."
                            TO DC-ERROR-MESSAGE
                    END-IF
                WHEN 5

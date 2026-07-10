@@ -13,6 +13,12 @@
        01 WS-ACCEPT PIC X(64).
        01 WS-LONG-PAYLOAD PIC X(130).
        01 WS-TEXT-PAYLOAD PIC X(8192).
+       01 WS-FRAME-A.
+          05 WS-FRAME-A-LENGTH PIC 9(9) COMP-5.
+          05 WS-FRAME-A-DATA PIC X(8192).
+       01 WS-FRAME-B.
+          05 WS-FRAME-B-LENGTH PIC 9(9) COMP-5.
+          05 WS-FRAME-B-DATA PIC X(8192).
        01 WS-LIVE-HOST PIC X(256) VALUE "live.example.test".
        01 WS-LIVE-PORT PIC 9(5) COMP-5 VALUE 8443.
        01 WS-FAILURES PIC 9(4) COMP-5 VALUE 0.
@@ -28,8 +34,11 @@
            PERFORM TEST-EXTENDED-LENGTH
            PERFORM TEST-LIVE-CONNECT-SEND
            PERFORM TEST-SEND-RECV
+           PERFORM TEST-COALESCED-FRAMES
+           PERFORM TEST-FRAGMENTED-MESSAGE
            PERFORM TEST-PING-PONG
            PERFORM TEST-CLOSE
+           PERFORM TEST-EXPLICIT-CLOSE
            PERFORM FINISH-TEST.
 
        TEST-CONNECT.
@@ -352,6 +361,98 @@
                ADD 1 TO WS-FAILURES
            END-IF.
 
+       TEST-COALESCED-FRAMES.
+           PERFORM OPEN-SESSION
+           INITIALIZE DC-WS-FRAME
+           MOVE 1 TO DC-WS-FIN-FLAG
+           MOVE 1 TO DC-WS-OPCODE
+           MOVE 3 TO DC-WS-PAYLOAD-LENGTH
+           MOVE "one" TO DC-WS-PAYLOAD(1:3)
+           CALL "DC-WS-ENCODE-FRAME"
+               USING DC-WS-FRAME DC-WS-BUFFER DC-RESULT
+           PERFORM CHECK-OK
+           MOVE DC-WS-BUFFER TO WS-FRAME-A
+
+           INITIALIZE DC-WS-FRAME DC-WS-BUFFER
+           MOVE 1 TO DC-WS-FIN-FLAG
+           MOVE 1 TO DC-WS-OPCODE
+           MOVE 3 TO DC-WS-PAYLOAD-LENGTH
+           MOVE "two" TO DC-WS-PAYLOAD(1:3)
+           CALL "DC-WS-ENCODE-FRAME"
+               USING DC-WS-FRAME DC-WS-BUFFER DC-RESULT
+           PERFORM CHECK-OK
+           MOVE DC-WS-BUFFER TO WS-FRAME-B
+
+           COMPUTE DC-WS-INBOUND-BUFFER-LENGTH =
+               WS-FRAME-A-LENGTH + WS-FRAME-B-LENGTH
+           MOVE WS-FRAME-A-DATA(1:WS-FRAME-A-LENGTH)
+               TO DC-WS-INBOUND-BUFFER(1:WS-FRAME-A-LENGTH)
+           MOVE WS-FRAME-B-DATA(1:WS-FRAME-B-LENGTH)
+               TO DC-WS-INBOUND-BUFFER(
+                   WS-FRAME-A-LENGTH + 1:WS-FRAME-B-LENGTH)
+
+           CALL "DC-WS-RECV"
+               USING DC-WS-SESSION DC-WS-FRAME DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-WS-PAYLOAD(1:3) NOT = "one"
+               DISPLAY "websocket-test: first coalesced frame mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-WS-INBOUND-BUFFER-LENGTH NOT = WS-FRAME-B-LENGTH
+               DISPLAY "websocket-test: coalesced remainder was lost"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           CALL "DC-WS-RECV"
+               USING DC-WS-SESSION DC-WS-FRAME DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-WS-PAYLOAD(1:3) NOT = "two"
+               DISPLAY "websocket-test: second coalesced frame mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-FRAGMENTED-MESSAGE.
+           PERFORM OPEN-SESSION
+           INITIALIZE DC-WS-FRAME
+           MOVE 0 TO DC-WS-FIN-FLAG
+           MOVE 1 TO DC-WS-OPCODE
+           MOVE 3 TO DC-WS-PAYLOAD-LENGTH
+           MOVE "hel" TO DC-WS-PAYLOAD(1:3)
+           CALL "DC-WS-ENCODE-FRAME"
+               USING DC-WS-FRAME DC-WS-BUFFER DC-RESULT
+           PERFORM CHECK-OK
+           MOVE DC-WS-BUFFER TO WS-FRAME-A
+
+           INITIALIZE DC-WS-FRAME DC-WS-BUFFER
+           MOVE 1 TO DC-WS-FIN-FLAG
+           MOVE 0 TO DC-WS-OPCODE
+           MOVE 2 TO DC-WS-PAYLOAD-LENGTH
+           MOVE "lo" TO DC-WS-PAYLOAD(1:2)
+           CALL "DC-WS-ENCODE-FRAME"
+               USING DC-WS-FRAME DC-WS-BUFFER DC-RESULT
+           PERFORM CHECK-OK
+           MOVE DC-WS-BUFFER TO WS-FRAME-B
+
+           COMPUTE DC-WS-INBOUND-BUFFER-LENGTH =
+               WS-FRAME-A-LENGTH + WS-FRAME-B-LENGTH
+           MOVE WS-FRAME-A-DATA(1:WS-FRAME-A-LENGTH)
+               TO DC-WS-INBOUND-BUFFER(1:WS-FRAME-A-LENGTH)
+           MOVE WS-FRAME-B-DATA(1:WS-FRAME-B-LENGTH)
+               TO DC-WS-INBOUND-BUFFER(
+                   WS-FRAME-A-LENGTH + 1:WS-FRAME-B-LENGTH)
+
+           CALL "DC-WS-RECV"
+               USING DC-WS-SESSION DC-WS-FRAME DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-WS-OPCODE NOT = 1 OR DC-WS-FIN-FLAG NOT = 1
+               DISPLAY "websocket-test: fragmented metadata mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-WS-PAYLOAD-LENGTH NOT = 5
+              OR DC-WS-PAYLOAD(1:5) NOT = "hello"
+               DISPLAY "websocket-test: fragmented payload mismatch"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
        TEST-CLOSE.
            PERFORM OPEN-SESSION
            INITIALIZE DC-WS-FRAME
@@ -374,6 +475,19 @@
            END-IF
            IF DC-WS-OPEN-FLAG NOT = 0
                DISPLAY "websocket-test: session did not close"
+               ADD 1 TO WS-FAILURES
+           END-IF.
+
+       TEST-EXPLICIT-CLOSE.
+           PERFORM OPEN-SESSION
+           CALL "DC-WS-CLOSE" USING DC-WS-SESSION DC-RESULT
+           PERFORM CHECK-OK
+           IF DC-WS-OPEN-FLAG NOT = 0
+               DISPLAY "websocket-test: explicit close left session open"
+               ADD 1 TO WS-FAILURES
+           END-IF
+           IF DC-WS-OUTBOUND-BUFFER-LENGTH = 0
+               DISPLAY "websocket-test: explicit close frame missing"
                ADD 1 TO WS-FAILURES
            END-IF.
 

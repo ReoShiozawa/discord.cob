@@ -1,0 +1,38 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. EXAMPLE-UDP-DISCOVERY.
+       *> JP: Discord Voice UDP discovery を実際の UDP transport で単独実行します。
+       *> EN: Runs Discord Voice UDP discovery directly over the live UDP transport.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       COPY "discord-voice.cpy".
+       COPY "discord-result.cpy".
+       01 WS-PORT-TEXT PIC X(16).
+       01 WS-SSRC-TEXT PIC X(16).
+
+       PROCEDURE DIVISION.
+       MAIN.
+           INITIALIZE DC-VOICE-SESSION
+           ACCEPT DC-VS-IP FROM ENVIRONMENT "DISCORD_VOICE_IP"
+           ACCEPT WS-PORT-TEXT FROM ENVIRONMENT "DISCORD_VOICE_PORT"
+           ACCEPT WS-SSRC-TEXT FROM ENVIRONMENT "DISCORD_VOICE_SSRC"
+           IF FUNCTION TRIM(DC-VS-IP) = SPACES
+              OR FUNCTION TRIM(WS-PORT-TEXT) = SPACES
+              OR FUNCTION TRIM(WS-SSRC-TEXT) = SPACES
+               DISPLAY "DISCORD_VOICE_IP, DISCORD_VOICE_PORT, and "
+                   "DISCORD_VOICE_SSRC are required"
+               STOP RUN RETURNING 2
+           END-IF
+           MOVE FUNCTION NUMVAL(FUNCTION TRIM(WS-PORT-TEXT)) TO DC-VS-PORT
+           MOVE FUNCTION NUMVAL(FUNCTION TRIM(WS-SSRC-TEXT)) TO DC-VS-SSRC
+
+           CALL "DC-VOICE-UDP-DISCOVER" USING DC-VOICE-SESSION DC-RESULT
+           IF DC-STATUS-CODE NOT = DC-STATUS-OK
+               DISPLAY FUNCTION TRIM(DC-ERROR-CODE)
+               DISPLAY FUNCTION TRIM(DC-ERROR-MESSAGE)
+               STOP RUN RETURNING 1
+           END-IF
+           DISPLAY "discovered address: " FUNCTION TRIM(DC-VS-DISCOVERED-IP)
+           DISPLAY "discovered port: " DC-VS-DISCOVERED-PORT
+           STOP RUN RETURNING 0.
+       END PROGRAM EXAMPLE-UDP-DISCOVERY.
